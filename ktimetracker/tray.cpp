@@ -141,6 +141,7 @@ void TrayIcon::updateToolTip(QList<Task*> activeTasks)
     if ( activeTasks.isEmpty() )
     {
         this->setToolTip( "ktimetracker", "ktimetracker", i18n("No active tasks") );
+        this->showMessage("KTimeTracker", i18n("No active tasks"), this->iconName(), 3000);
         return;
     }
 
@@ -173,6 +174,13 @@ void TrayIcon::updateToolTip(QList<Task*> activeTasks)
         qTip = s;
     }
     this->setToolTip( "ktimetracker", "ktimetracker", qTip );
+
+    QString messageText;
+    if (activeTasks.count() == 1)
+      messageText = i18n("Active task: %1");
+    else
+      messageText = i18n("Active task: %1");
+    this->showMessage("KTimeTracker", messageText.arg(qTip), this->iconName(), 3000);
 }
 
 #include "tray.moc"
