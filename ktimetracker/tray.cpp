@@ -53,6 +53,12 @@ TrayIcon::TrayIcon(MainWindow* parent)
     _taskActiveTimer = new QTimer(this);
     connect( _taskActiveTimer, SIGNAL(timeout()), this,
                                SLOT(advanceClock()) );
+    // TODO if notification is enabled
+    _notificationTimer = new QTimer(this);
+    connect(_notificationTimer, SIGNAL(timeout()), this,
+                                SLOT(showNotification()) );
+    // TODO configure minutes
+    _notificationTimer->start(15*60000);
 
     if (icons == 0)
     {
@@ -123,6 +129,11 @@ void TrayIcon::advanceClock()
 {
     _activeIcon = (_activeIcon+1) % 8;
     setIconByPixmap( *(*icons)[_activeIcon]);
+}
+
+void TrayIcon::showNotification()
+{
+    this->updateToolTip(((MainWindow*)parent())->activeTasks());
 }
 
 void TrayIcon::resetClock()

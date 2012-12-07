@@ -61,6 +61,7 @@ class MainWindow : public KParts::MainWindow
 
   public:
     MainWindow( const QString &icsfile = "" );
+    QList<Task*> activeTasks();
     virtual ~MainWindow();
 
   public Q_SLOTS:

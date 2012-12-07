@@ -48,6 +48,7 @@ class TrayIcon : public KStatusNotifierItem
     int _activeIcon;
     static QVector<QPixmap*> *icons;
     QTimer *_taskActiveTimer;
+    QTimer *_notificationTimer;
 
   public Q_SLOTS:
     void startClock();
@@ -58,6 +59,7 @@ class TrayIcon : public KStatusNotifierItem
 
   protected Q_SLOTS:
     void advanceClock();
+    void showNotification();
 
   // experiment
   /*
