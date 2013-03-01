@@ -24,6 +24,7 @@
 #include "ui_cfgbehavior.h"
 #include "ui_cfgdisplay.h"
 #include "ui_cfgstorage.h"
+#include "ui_cfgnotification.h"
 #include "ktimetracker.h"
 KTimeTrackerConfigDialog::KTimeTrackerConfigDialog( const QString &title,
                                                     QWidget *parent )
@@ -36,6 +37,7 @@ KTimeTrackerConfigDialog::KTimeTrackerConfigDialog( const QString &title,
     addModule( "ktimetracker_config_behavior" );
     addModule( "ktimetracker_config_display" );
     addModule( "ktimetracker_config_storage" );
+    addModule( "ktimetracker_config_notification" );
 }
 
 KTimeTrackerConfigDialog::~KTimeTrackerConfigDialog()
@@ -53,6 +55,15 @@ extern "C"
     {
         KComponentData instance( "ktimetracker_config_behavior" );
         return new KTimeTrackerBehaviorConfig( instance, parent );
+    }
+}
+
+extern "C"
+{
+    KDE_EXPORT KCModule *create_ktimetracker_config_notification( QWidget *parent )
+    {
+        KComponentData instance( "ktimetracker_config_notification" );
+        return new KTimeTrackerNotificationConfig( instance, parent );
     }
 }
 
@@ -92,6 +103,28 @@ void KTimeTrackerBehaviorConfig::load()
 }
 
 void KTimeTrackerBehaviorConfig::save()
+{
+    KCModule::save();
+}
+
+KTimeTrackerNotificationConfig::KTimeTrackerNotificationConfig( const KComponentData &inst, QWidget *parent )
+    :KCModule( inst, parent )
+{
+    QHBoxLayout *lay = new QHBoxLayout( this );
+    Ui::NotificationPage *notificationUi = new Ui::NotificationPage;
+    QWidget *notificationPage = new QWidget;
+    notificationUi->setupUi( notificationPage );
+    lay->addWidget( notificationPage );
+    addConfig( KTimeTrackerSettings::self(), notificationPage );
+    load();
+}
+
+void KTimeTrackerNotificationConfig::load()
+{
+    KCModule::load();
+}
+
+void KTimeTrackerNotificationConfig::save()
 {
     KCModule::save();
 }

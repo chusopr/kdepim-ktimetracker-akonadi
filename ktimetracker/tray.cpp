@@ -42,6 +42,7 @@
 #include "mainwindow.h"
 #include "task.h"
 #include "timetrackerwidget.h"
+#include "ktimetracker.h"
 
 QVector<QPixmap*> *TrayIcon::icons = 0;
 
@@ -53,12 +54,14 @@ TrayIcon::TrayIcon(MainWindow* parent)
     _taskActiveTimer = new QTimer(this);
     connect( _taskActiveTimer, SIGNAL(timeout()), this,
                                SLOT(advanceClock()) );
-    // TODO if notification is enabled
-    _notificationTimer = new QTimer(this);
-    connect(_notificationTimer, SIGNAL(timeout()), this,
-                                SLOT(showNotification()) );
-    // TODO configure minutes
-    _notificationTimer->start(15*60000);
+
+    if (KTimeTrackerSettings::showNotification())
+    {
+      _notificationTimer = new QTimer(this);
+      connect(_notificationTimer, SIGNAL(timeout()), this,
+                                  SLOT(showNotification()) );
+      _notificationTimer->start(KTimeTrackerSettings::notificationPeriod()*60000);
+    }
 
     if (icons == 0)
     {
@@ -152,7 +155,8 @@ void TrayIcon::updateToolTip(QList<Task*> activeTasks)
     if ( activeTasks.isEmpty() )
     {
         this->setToolTip( "ktimetracker", "ktimetracker", i18n("No active tasks") );
-        this->showMessage("KTimeTracker", i18n("No active tasks"), this->iconName(), 3000);
+        if ((KTimeTrackerSettings::showNotification()) && (KTimeTrackerSettings::notificationInactive()))
+          this->showMessage("KTimeTracker", i18n("No active tasks"), this->iconName());
         return;
     }
 
@@ -191,7 +195,8 @@ void TrayIcon::updateToolTip(QList<Task*> activeTasks)
       messageText = i18n("Active task: %1");
     else
       messageText = i18n("Active task: %1");
-    this->showMessage("KTimeTracker", messageText.arg(qTip), this->iconName(), 3000);
+    if (KTimeTrackerSettings::showNotification())
+      this->showMessage("KTimeTracker", messageText.arg(qTip), this->iconName());
 }
 
 #include "tray.moc"

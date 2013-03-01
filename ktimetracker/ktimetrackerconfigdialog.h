@@ -58,6 +58,16 @@ public:
     virtual void save();
 };
 
+class KTimeTrackerNotificationConfig : public KCModule
+{
+    Q_OBJECT
+public:
+    KTimeTrackerNotificationConfig( const KComponentData &inst, QWidget *parent );
+    /** Reimplemented from KCModule. */
+    virtual void load();
+    virtual void save();
+};
+
 class KTimeTrackerStorageConfig : public KCModule
 {
     Q_OBJECT

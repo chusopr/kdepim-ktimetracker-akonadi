@@ -45,6 +45,7 @@ kde4_add_ui_files( ktimetracker_shared_SRCS
         edittaskdialog.ui
         cfgbehavior.ui
         cfgdisplay.ui
+        cfgnotification.ui
         cfgstorage.ui )
 
 kde4_add_kcfg_files( ktimetracker_shared_SRCS ktimetracker.kcfgc )
@@ -100,7 +101,7 @@ install(TARGETS ktimetrackerpart  DESTINATION ${PLUGIN_INSTALL_DIR})
 
 
 ########### install files ###############
-install( FILES ktimetracker_config_behavior.desktop  ktimetracker_config_display.desktop  ktimetracker_config_storage.desktop DESTINATION ${SERVICES_INSTALL_DIR})
+install( FILES ktimetracker_config_behavior.desktop  ktimetracker_config_display.desktop  ktimetracker_config_notification.desktop ktimetracker_config_storage.desktop DESTINATION ${SERVICES_INSTALL_DIR})
 
 install( FILES ktimetrackerpart.desktop  DESTINATION ${SERVICES_INSTALL_DIR} )
 install( FILES ktimetrackerui.rc  DESTINATION ${DATA_INSTALL_DIR}/ktimetracker )
