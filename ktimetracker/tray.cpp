@@ -176,10 +176,23 @@ void TrayIcon::updateToolTip(QList<Task*> activeTasks)
     for ( int i = 0; i < activeTasks.count(); ++i )
     {
         Task* task = activeTasks.at( i );
+        long int duration;
+        QString duration_str;
+        if (task->sessionTime() > 1440)
+        {
+          duration_str += i18n("%1 days, ").arg(task->sessionTime()/1440);
+          duration %= 1440;
+        }
+        if (task->sessionTime() > 60)
+        {
+          duration_str += i18n("%1 hours, ").arg(task->sessionTime()/60);
+          duration %= 60;
+        }
+        duration_str += i18n("%1 minutes").arg(task->sessionTime());
+
         if ( i > 0 )
-            s += i18n( ", " ) + task->name();
-        else
-            s += task->name();
+            s += i18n( "\n" );
+        s += i18n("%1 (%2)").arg(task->name()).arg(duration_str);
         int width = fm.boundingRect( s ).width();
         if ( width > maxWidth )
         {
@@ -194,7 +207,7 @@ void TrayIcon::updateToolTip(QList<Task*> activeTasks)
     if (activeTasks.count() == 1)
       messageText = i18n("Active task: %1");
     else
-      messageText = i18n("Active task: %1");
+      messageText = i18n("Active tasks:\n%1");
     if (KTimeTrackerSettings::showNotification())
       this->showMessage("KTimeTracker", messageText.arg(qTip), "ktimetracker");
 }
