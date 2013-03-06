@@ -137,6 +137,14 @@ void TrayIcon::advanceClock()
 void TrayIcon::showNotification()
 {
     this->updateToolTip(((MainWindow*)parent())->activeTasks());
+    if (
+         (KTimeTrackerSettings::showNotification()) &&
+         (
+           (!((MainWindow*)parent())->activeTasks().isEmpty()) ||
+           (KTimeTrackerSettings::notificationInactive())
+         )
+       )
+      this->showMessage(this->toolTipTitle(), this->toolTipSubTitle(), this->toolTipIconName());
 }
 
 void TrayIcon::resetClock()
@@ -154,9 +162,7 @@ void TrayIcon::updateToolTip(QList<Task*> activeTasks)
 {
     if ( activeTasks.isEmpty() )
     {
-        this->setToolTip( "ktimetracker", "ktimetracker", i18n("No active tasks") );
-        if ((KTimeTrackerSettings::showNotification()) && (KTimeTrackerSettings::notificationInactive()))
-          this->showMessage("KTimeTracker", i18n("No active tasks"), "ktimetracker");
+        this->setToolTip( "ktimetracker", "KTimeTracker", i18n("No active tasks") );
         return;
     }
 
@@ -208,8 +214,6 @@ void TrayIcon::updateToolTip(QList<Task*> activeTasks)
       messageText = i18n("Active task: %1");
     else
       messageText = i18n("Active tasks:\n%1");
-    if (KTimeTrackerSettings::showNotification())
-      this->showMessage("KTimeTracker", messageText.arg(qTip), "ktimetracker");
 }
 
 #include "tray.moc"
