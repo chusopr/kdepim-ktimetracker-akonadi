@@ -182,19 +182,19 @@ void TrayIcon::updateToolTip(QList<Task*> activeTasks)
     for ( int i = 0; i < activeTasks.count(); ++i )
     {
         Task* task = activeTasks.at( i );
-        long int duration;
+        long int duration = task->sessionTime();
         QString duration_str;
-        if (task->sessionTime() > 1440)
+        if (duration > 1440)
         {
-          duration_str += i18n("%1 days, ").arg(task->sessionTime()/1440);
+          duration_str += i18n("%1 days, ").arg(duration/1440);
           duration %= 1440;
         }
-        if (task->sessionTime() > 60)
+        if (duration > 60)
         {
-          duration_str += i18n("%1 hours, ").arg(task->sessionTime()/60);
+          duration_str += i18n("%1 hours, ").arg(duration/60);
           duration %= 60;
         }
-        duration_str += i18n("%1 minutes").arg(task->sessionTime());
+        duration_str += i18n("%1 minutes").arg(duration);
 
         if ( i > 0 )
             s += i18n( "\n" );
