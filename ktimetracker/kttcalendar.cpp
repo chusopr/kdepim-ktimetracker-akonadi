@@ -28,6 +28,11 @@
 #include <KDateTime>
 #include <KDirWatch>
 #include <KDebug>
+#include <Akonadi/CollectionFetchJob>
+#include <Akonadi/CollectionFetchScope>
+#include <Akonadi/ItemFetchScope>
+#include <Akonadi/ItemFetchJob>
+#include <QEventLoop>
 
 using namespace KCalCore;
 using namespace KTimeTracker;
@@ -46,6 +51,7 @@ KTTCalendar::KTTCalendar( const QString &filename,
                           bool monitorFile ) : KCalCore::MemoryCalendar( KDateTime::LocalZone )
                                              , d( new Private( filename ) )
 {
+  // TODO
   if ( monitorFile ) {
     connect( KDirWatch::self(), SIGNAL(dirty(QString)), SIGNAL(calendarChanged()) );
     if ( !KDirWatch::self()->contains( filename ) ) {
@@ -62,14 +68,46 @@ KTTCalendar::~KTTCalendar()
 bool KTTCalendar::reload()
 {
   deleteAllTodos();
-  KTTCalendar::Ptr calendar = weakPointer().toStrongRef();
-  KCalCore::FileStorage::Ptr fileStorage = FileStorage::Ptr( new FileStorage( calendar,
-                                                                              d->m_filename,
-                                                                              new ICalFormat() ) );
-  const bool result = fileStorage->load();
-  if ( !result )
-    kError() << "KTTCalendar::reload: problem loading calendar";
-  return result;
+
+  // TODO: For now, we are just picking the first Todo collection
+  // this should be replaced by a configuration option
+  Akonadi::CollectionFetchJob *job = new Akonadi::CollectionFetchJob(Akonadi::Collection::root(), Akonadi::CollectionFetchJob::Recursive, this);
+  job->fetchScope().setContentMimeTypes(QStringList() << "application/x-vnd.akonadi.calendar.todo");
+
+  connect(job, SIGNAL(collectionsReceived(const Akonadi::Collection::List&)),
+         this, SLOT(collectionsReceived(const Akonadi::Collection::List&)));
+  connect(job, SIGNAL(result(KJob*)), this, SLOT(fetchJobResult(KJob*)));
+  QEventLoop loop;
+  connect(this, SIGNAL(itemsAttached()), &loop, SLOT(quit()));
+  loop.exec();
+  disconnect(this, SIGNAL(itemsAttached()), &loop, SLOT(quit()));
+  return (fetchResult == 0);
+}
+
+void KTTCalendar::collectionsReceived(const Akonadi::Collection::List &collections)
+{
+  collection = collections[0];
+  Akonadi::ItemFetchJob *job = new Akonadi::ItemFetchJob(collection, this);
+  job->fetchScope().fetchFullPayload(true);
+  connect(job, SIGNAL(itemsReceived(const Akonadi::Item::List&)), this, SLOT(itemsReceived(const Akonadi::Item::List&)));
+  connect(job, SIGNAL(result(KJob*)), this, SLOT(fetchJobResult(KJob*)));
+}
+
+void KTTCalendar::fetchJobResult(KJob* job)
+{
+  fetchResult = job->error();
+  if (fetchResult != 0)
+  {
+    emit itemsAttached();
+    return;
+  }
+}
+
+void KTTCalendar::itemsReceived(const Akonadi::Item::List& items)
+{
+  for (QList<Akonadi::Item>::const_iterator todo = items.begin(); todo != items.end(); todo++)
+    this->addTodo(todo->payload<KCalCore::Todo::Ptr>());
+  emit itemsAttached();
 }
 
 QWeakPointer<KTTCalendar> KTTCalendar::weakPointer() const

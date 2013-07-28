@@ -24,6 +24,9 @@
 
 #include <KCalCore/MemoryCalendar>
 #include <QWeakPointer>
+#include <Akonadi/Collection>
+#include <Akonadi/Item>
+#include <KJob>
 
 namespace KTimeTracker {
   class KTTCalendar : public KCalCore::MemoryCalendar {
@@ -52,6 +55,14 @@ namespace KTimeTracker {
     explicit KTTCalendar( const QString &filename, bool monitorFile );
     class Private;
     Private *const d;
+    int fetchResult;
+    Akonadi::Collection collection;
+  Q_SIGNALS:
+    void itemsAttached();
+  private Q_SLOTS:
+    void fetchJobResult(KJob* job);
+    void collectionsReceived(const Akonadi::Collection::List &collections);
+    void itemsReceived(const Akonadi::Item::List &items);
   };
 }
 

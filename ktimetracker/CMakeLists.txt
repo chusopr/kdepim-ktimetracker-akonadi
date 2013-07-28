@@ -13,6 +13,9 @@ add_subdirectory( pics )
 include_directories( ${CMAKE_SOURCE_DIR}/kresources/remote )
 
 
+# enable exception handling
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${KDE4_ENABLE_EXCEPTIONS}")
+
 ########### next target ###############
 set(ktimetracker_shared_SRCS ktimetrackerconfigdialog.cpp
 	desktoptracker.cpp ktimetrackerpart.cpp
@@ -61,7 +64,7 @@ kde4_add_executable(ktimetracker ${ktimetracker_SRCS})
 
 target_link_libraries(karm  ${KDE4_KIO_LIBS} ${KDEPIMLIBS_KCALCORE_LIBS} ${KDEPIMLIBS_KONTACTINTERFACE_LIBS} )
 
-target_link_libraries(ktimetracker   ${KDE4_KCMUTILS_LIBS} ${KDE4_KPARTS_LIBRARY} ${KDEPIMLIBS_KCALCORE_LIBS} ${KDEPIMLIBS_KONTACTINTERFACE_LIBS} ${X11_X11_LIB})
+target_link_libraries(ktimetracker   ${KDE4_KCMUTILS_LIBS} ${KDE4_KPARTS_LIBRARY} ${KDEPIMLIBS_KCALCORE_LIBS} ${KDEPIMLIBS_KONTACTINTERFACE_LIBS} ${KDEPIMLIBS_AKONADI_LIBS} ${X11_X11_LIB})
 if(X11_Xscreensaver_LIB)
 	target_link_libraries(ktimetracker  ${X11_Xscreensaver_LIB} )
 endif(X11_Xscreensaver_LIB)
