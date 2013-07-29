@@ -21,7 +21,7 @@
 
 #include "kttcalendar.h"
 
-#include <KCalCore/FileStorage>
+#include "akonadistorage.h"
 #include <KCalCore/MemoryCalendar>
 #include <KCalCore/ICalFormat>
 
@@ -39,25 +39,25 @@ using namespace KTimeTracker;
 
 class KTTCalendar::Private {
 public:
-  Private( const QString &filename ) : m_filename( filename )
+  Private()
   {
   }
-  QString m_filename;
+  Akonadi::Collection m_collection;
   QWeakPointer<KTTCalendar> m_weakPtr;
-  KCalCore::FileStorage::Ptr m_fileStorage;
+  KCalCore::AkonadiStorage::Ptr m_akonadiStorage;
 };
 
-KTTCalendar::KTTCalendar( const QString &filename,
-                          bool monitorFile ) : KCalCore::MemoryCalendar( KDateTime::LocalZone )
-                                             , d( new Private( filename ) )
+// TODO pass akonadi collection
+//KTTCalendar::KTTCalendar( const QString &filename,
+//                          bool monitorFile ) : KCalCore::MemoryCalendar( KDateTime::LocalZone )
+//                                             , d( new Private( filename ) )
+KTTCalendar::KTTCalendar() : KCalCore::MemoryCalendar( KDateTime::LocalZone )
+                                             , d( new Private() )
 {
   // TODO
-  if ( monitorFile ) {
-    connect( KDirWatch::self(), SIGNAL(dirty(QString)), SIGNAL(calendarChanged()) );
-    if ( !KDirWatch::self()->contains( filename ) ) {
-      KDirWatch::self()->addFile( filename );
-    }
-  }
+  // if ( monitorFile ) {
+  //   connect( KDirWatch::self(), SIGNAL(dirty(QString)), SIGNAL(calendarChanged()) );
+  // }
 }
 
 KTTCalendar::~KTTCalendar()
@@ -74,40 +74,30 @@ bool KTTCalendar::reload()
   Akonadi::CollectionFetchJob *job = new Akonadi::CollectionFetchJob(Akonadi::Collection::root(), Akonadi::CollectionFetchJob::Recursive, this);
   job->fetchScope().setContentMimeTypes(QStringList() << "application/x-vnd.akonadi.calendar.todo");
 
+  fetchResult = false;
   connect(job, SIGNAL(collectionsReceived(const Akonadi::Collection::List&)),
          this, SLOT(collectionsReceived(const Akonadi::Collection::List&)));
   connect(job, SIGNAL(result(KJob*)), this, SLOT(fetchJobResult(KJob*)));
   QEventLoop loop;
-  connect(this, SIGNAL(itemsAttached()), &loop, SLOT(quit()));
+  connect(job, SIGNAL(result(KJob*)), &loop, SLOT(quit()));
   loop.exec();
-  disconnect(this, SIGNAL(itemsAttached()), &loop, SLOT(quit()));
-  return (fetchResult == 0);
+  disconnect(job, SIGNAL(result(KJob*)), &loop, SLOT(quit()));
+  return fetchResult;
 }
 
 void KTTCalendar::collectionsReceived(const Akonadi::Collection::List &collections)
 {
-  collection = collections[0];
-  Akonadi::ItemFetchJob *job = new Akonadi::ItemFetchJob(collection, this);
-  job->fetchScope().fetchFullPayload(true);
-  connect(job, SIGNAL(itemsReceived(const Akonadi::Item::List&)), this, SLOT(itemsReceived(const Akonadi::Item::List&)));
-  connect(job, SIGNAL(result(KJob*)), this, SLOT(fetchJobResult(KJob*)));
+  d->m_collection = collections[0];
+
+  KTTCalendar::Ptr calendar = weakPointer().toStrongRef();
+  KCalCore::AkonadiStorage::Ptr akonadiStorage = AkonadiStorage::Ptr( new AkonadiStorage( calendar, d->m_collection ) );
+
+  fetchResult = akonadiStorage->load();
 }
 
 void KTTCalendar::fetchJobResult(KJob* job)
 {
   fetchResult = job->error();
-  if (fetchResult != 0)
-  {
-    emit itemsAttached();
-    return;
-  }
-}
-
-void KTTCalendar::itemsReceived(const Akonadi::Item::List& items)
-{
-  for (QList<Akonadi::Item>::const_iterator todo = items.begin(); todo != items.end(); todo++)
-    this->addTodo(todo->payload<KCalCore::Todo::Ptr>());
-  emit itemsAttached();
 }
 
 QWeakPointer<KTTCalendar> KTTCalendar::weakPointer() const
@@ -121,9 +111,10 @@ void KTTCalendar::setWeakPointer(const QWeakPointer<KTTCalendar> &ptr )
 }
 
 /** static */
-KTTCalendar::Ptr KTTCalendar::createInstance( const QString &filename, bool monitorFile )
+// TODO pass akonadi collection
+KTTCalendar::Ptr KTTCalendar::createInstance()
 {
-  KTTCalendar::Ptr calendar( new KTTCalendar( filename, monitorFile ) );
+  KTTCalendar::Ptr calendar( new KTTCalendar() );
   calendar->setWeakPointer( calendar.toWeakRef() );
   return calendar;
 }
@@ -131,13 +122,12 @@ KTTCalendar::Ptr KTTCalendar::createInstance( const QString &filename, bool moni
 /** static */
 bool KTTCalendar::save()
 {
-  KTTCalendar::Ptr calendar = weakPointer().toStrongRef();
-  FileStorage::Ptr fileStorage = FileStorage::Ptr( new FileStorage( calendar,
-                                                                    d->m_filename,
-                                                                    new ICalFormat() ) );
+/*  KTTCalendar::Ptr calendar = weakPointer().toStrongRef();
+  AkonadiStorage::Ptr akonadiStorage = AkonadiStorage::Ptr( new AkonadiStorage() ); // TODO: pass akonadi collection
 
-  const bool result = fileStorage->save();
+  const bool result = akonadiStorage->save();
   if ( !result )
     kError() << "KTTCalendar::save: problem saving calendar";
-  return result;
+  return result;*/
+return true;
 }

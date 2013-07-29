@@ -25,7 +25,7 @@ set(ktimetracker_shared_SRCS ktimetrackerconfigdialog.cpp
 	task.cpp taskview.cpp tray.cpp focusdetector.cpp
 	csvexportdialog.cpp plannerparser.cpp historydialog.cpp
 	treeviewheadercontextmenu.cpp timetrackerwidget.cpp
-  focusdetectornotifier.cpp kttcalendar.cpp
+  focusdetectornotifier.cpp kttcalendar.cpp akonadistorage.cpp
  )
 
 qt4_add_dbus_adaptor( ktimetracker_shared_SRCS

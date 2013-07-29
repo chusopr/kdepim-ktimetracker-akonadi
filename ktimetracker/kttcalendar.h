@@ -44,25 +44,20 @@ namespace KTimeTracker {
      *
      * For this reason, the ctor is private.
      */
-    static KTimeTracker::KTTCalendar::Ptr createInstance( const QString &filename,
-                                                          bool monitorFile );
+    static KTimeTracker::KTTCalendar::Ptr createInstance();
     QWeakPointer<KTimeTracker::KTTCalendar> weakPointer() const;
     void setWeakPointer( const QWeakPointer<KTimeTracker::KTTCalendar> &);
   Q_SIGNALS:
     void calendarChanged();
   private:
     KTTCalendar();
-    explicit KTTCalendar( const QString &filename, bool monitorFile );
+    //explicit KTTCalendar(); // TODO pass akonadi collection
     class Private;
     Private *const d;
-    int fetchResult;
-    Akonadi::Collection collection;
-  Q_SIGNALS:
-    void itemsAttached();
+    bool fetchResult;
   private Q_SLOTS:
     void fetchJobResult(KJob* job);
     void collectionsReceived(const Akonadi::Collection::List &collections);
-    void itemsReceived(const Akonadi::Item::List &items);
   };
 }
 
