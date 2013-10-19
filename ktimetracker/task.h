@@ -289,7 +289,7 @@ public:
      */
     bool parseIncidence( const KCalCore::Incidence::Ptr &,
         long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops,
-        int& percent_complete, int& priority );
+        int& priority );
 
     /**
      *  Load the todo passed in with this tasks info.
@@ -367,11 +367,9 @@ public:
 
     /** initialize a task */
     void init(long sessionTime, QString sessionStartTiMe,
-               DesktopList desktops, int percent_complete, int priority, bool konsolemode=false );
+               DesktopList desktops, int priority, bool konsolemode=false );
 
     static QVector<QPixmap*> *icons;
-
-    int mPercentComplete;
 
     /** Last time this task was started. */
     QDateTime mLastStart;

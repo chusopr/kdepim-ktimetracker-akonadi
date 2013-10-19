@@ -48,7 +48,7 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
     todo->setDescription(taskDescription);
     todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
     taskTodo = todo;
-    init(sessionTime, 0, desktops, 0, 0, konsolemode );
+    init(sessionTime, 0, desktops, 0, konsolemode );
 }
 
 Task::Task( const QString& taskName, const QString& taskDescription, long minutes, long sessionTime,
@@ -58,7 +58,7 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
     taskTodo->setSummary(taskName);
     taskTodo->setDescription(taskDescription);
     taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
-    init(sessionTime, 0, desktops, 0, 0 );
+    init(sessionTime, 0, desktops, 0 );
 }
 
 Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode )
@@ -66,14 +66,13 @@ Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode 
 {
     long sessionTime = 0;
     QString sessionStartTiMe;
-    int percent_complete = 0;
     int priority = 0;
     DesktopList desktops;
     taskTodo = todo;
 
-    parseIncidence( todo, sessionTime, sessionStartTiMe, desktops, percent_complete,
+    parseIncidence( todo, sessionTime, sessionStartTiMe, desktops,
                   priority );
-    init(sessionTime, sessionStartTiMe, desktops, percent_complete, priority, konsolemode );
+    init(sessionTime, sessionStartTiMe, desktops, priority, konsolemode );
 }
 
 int Task::depth()
@@ -89,7 +88,7 @@ int Task::depth()
 }
 
 void Task::init(long sessionTime, QString sessionStartTiMe,
-                 DesktopList desktops, int percent_complete, int priority, bool konsolemode )
+                 DesktopList desktops, int priority, bool konsolemode )
 {
     const TaskView *taskView = qobject_cast<TaskView*>( treeWidget() );
     // If our parent is the taskview then connect our totalTimesChanged
@@ -127,7 +126,6 @@ void Task::init(long sessionTime, QString sessionStartTiMe,
     connect(mTimer, SIGNAL(timeout()), this, SLOT(updateActiveIcon()));
     if ( !konsolemode ) setIcon(1, UserIcon(QString::fromLatin1("empty-watch.xpm")));
     mCurrentPic = 0;
-    mPercentComplete = percent_complete;
     mPriority = priority;
     mSessionStartTiMe=KDateTime::fromString(sessionStartTiMe);
 
@@ -244,26 +242,26 @@ void Task::setPercentComplete(const int percent, timetrackerstorage *storage)
     kDebug(5970) << "Entering function(" << percent <<", storage):" << taskTodo->uid();
 
     if (!percent)
-        mPercentComplete = 0;
+        taskTodo->setPercentComplete(0);
     else if (percent > 100)
-        mPercentComplete = 100;
+        taskTodo->setPercentComplete(100);
     else if (percent < 0)
-        mPercentComplete = 0;
+        taskTodo->setPercentComplete(0);
     else
-        mPercentComplete = percent;
+        taskTodo->setPercentComplete(percent);
 
-    if (isRunning() && mPercentComplete==100) taskView()->stopTimerFor(this);
+    if (isRunning() && percentComplete()==100) taskView()->stopTimerFor(this);
 
     setPixmapProgress();
 
     // When parent marked as complete, mark all children as complete as well.
     // This behavior is consistent with KOrganizer (as of 2003-09-24).
-    if (mPercentComplete == 100)
+    if (percentComplete() == 100)
     {
         for ( int i = 0; i < childCount(); ++i )
         {
             Task *task = static_cast< Task* >( child( i ) );
-            task->setPercentComplete(mPercentComplete, storage);
+            task->setPercentComplete(percentComplete(), storage);
         }
     }
     // maybe there is a column "percent completed", so do a ...
@@ -290,7 +288,7 @@ void Task::setPixmapProgress()
     kDebug(5970) << "Entering function";
     QPixmap icon;
     KIconLoader* kil = new KIconLoader();
-    if (mPercentComplete >= 100)
+    if (percentComplete() >= 100)
     {
         const QString iconcomplete=QString("task-complete.xpm");
         icon = kil->loadIcon( iconcomplete, KIconLoader::User );
@@ -305,7 +303,7 @@ void Task::setPixmapProgress()
     kDebug(5970) << "Leaving function";
 }
 
-bool Task::isComplete() { return mPercentComplete == 100; }
+bool Task::isComplete() { return percentComplete() == 100; }
 
 void Task::setDesktopList ( DesktopList desktopList )
 {
@@ -483,6 +481,8 @@ QString Task::fullName() const
 
 KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
 {
+    // todo = taskTodo;
+    // return taskTodo;
     Q_ASSERT( todo != NULL );
 
     kDebug(5970) <<"Task::asTodo: name() = '" << name() <<"'";
@@ -509,14 +509,14 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
             QByteArray( "desktopList" ), getDesktopStr() );
 
     todo->setOrganizer( KTimeTrackerSettings::userRealName() );
-    todo->setPercentComplete(mPercentComplete);
+    todo->setPercentComplete(percentComplete());
     todo->setPriority( mPriority );
     return todo;
 }
 
 bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident,
     long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops,
-    int& percent_complete, int& priority )
+    int& priority )
 {
     kDebug(5970) << "Entering function";
     bool ok;
@@ -579,7 +579,6 @@ bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident,
             desktops.push_back( desktopInt );
         }
     }
-    percent_complete = incident.staticCast<KCalCore::Todo>()->percentComplete();
     priority = incident->priority();
     return true;
 }
@@ -641,7 +640,7 @@ void Task::update()
     setText( 3, formatTime( mTotalSessionTime, b ) );
     setText( 4, formatTime( mTotalTime, b ) );
     setText( 5, mPriority > 0 ? QString::number( mPriority ) : "--" );
-    setText( 6, QString::number( mPercentComplete ) );
+    setText( 6, QString::number(percentComplete()) );
     kDebug( 5970 ) << "Leaving function";
 }
 
@@ -670,7 +669,7 @@ QString Task::comment() const
 
 int Task::percentComplete() const
 {
-    return mPercentComplete;
+    return taskTodo->percentComplete();
 }
 
 int Task::priority() const
