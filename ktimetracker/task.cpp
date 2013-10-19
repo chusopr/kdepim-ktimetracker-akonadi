@@ -46,8 +46,9 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
     KCalCore::Todo::Ptr todo(new KCalCore::Todo);
     todo->setSummary(taskName);
     todo->setDescription(taskDescription);
+    todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
     taskTodo = todo;
-    init(minutes, sessionTime, 0, desktops, 0, 0, konsolemode );
+    init(sessionTime, 0, desktops, 0, 0, konsolemode );
 }
 
 Task::Task( const QString& taskName, const QString& taskDescription, long minutes, long sessionTime,
@@ -56,13 +57,13 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
 {
     taskTodo->setSummary(taskName);
     taskTodo->setDescription(taskDescription);
-    init(minutes, sessionTime, 0, desktops, 0, 0 );
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
+    init(sessionTime, 0, desktops, 0, 0 );
 }
 
 Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode )
   : QObject(), QTreeWidgetItem( parent )
 {
-    long minutes = 0;
     long sessionTime = 0;
     QString sessionStartTiMe;
     int percent_complete = 0;
@@ -70,9 +71,9 @@ Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode 
     DesktopList desktops;
     taskTodo = todo;
 
-    parseIncidence( todo, minutes, sessionTime, sessionStartTiMe, desktops, percent_complete,
+    parseIncidence( todo, sessionTime, sessionStartTiMe, desktops, percent_complete,
                   priority );
-    init(minutes, sessionTime, sessionStartTiMe, desktops, percent_complete, priority, konsolemode );
+    init(sessionTime, sessionStartTiMe, desktops, percent_complete, priority, konsolemode );
 }
 
 int Task::depth()
@@ -87,7 +88,7 @@ int Task::depth()
     return res;
 }
 
-void Task::init(long minutes, long sessionTime, QString sessionStartTiMe,
+void Task::init(long sessionTime, QString sessionStartTiMe,
                  DesktopList desktops, int percent_complete, int priority, bool konsolemode )
 {
     const TaskView *taskView = qobject_cast<TaskView*>( treeWidget() );
@@ -119,7 +120,7 @@ void Task::init(long minutes, long sessionTime, QString sessionStartTiMe,
 
     mRemoving = false;
     mLastStart = QDateTime::currentDateTime();
-    mTotalTime = mTime = minutes;
+    mTotalTime = mTime = taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt();
     mTotalSessionTime = mSessionTime = sessionTime;
     mTimer = new QTimer(this);
     mDesktops = desktops;
@@ -513,7 +514,7 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
     return todo;
 }
 
-bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident, long& minutes,
+bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident,
     long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops,
     int& percent_complete, int& priority )
 {
@@ -530,10 +531,11 @@ bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident, long& minut
                 KGlobal::mainComponent().componentName().toUtf8(),
                 QByteArray( "totalTaskTime" ), incident->customProperty( "karm",
                 QByteArray( "totalTaskTime" )));
-                minutes = incident->customProperty( KGlobal::mainComponent().componentName().toUtf8(),
-                QByteArray( "totalTaskTime" )).toInt( &ok );
+
+    incident->customProperty( KGlobal::mainComponent().componentName().toUtf8(),
+                QByteArray( "totalTaskTime" )).toInt(&ok);
     if ( !ok )
-    minutes = 0;
+    incident->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), "0");
     ok = false;
 
     // if a KDE-karm-totalSessionTime exists and not KDE-ktimetracker-totalSessionTime, change this

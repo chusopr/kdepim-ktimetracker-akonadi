@@ -287,7 +287,7 @@ public:
      *  You read the todo, extract its custom properties (like session time)
      *  and use these data to initialize the task.
      */
-    bool parseIncidence( const KCalCore::Incidence::Ptr &, long& minutes,
+    bool parseIncidence( const KCalCore::Incidence::Ptr &,
         long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops,
         int& percent_complete, int& priority );
 
@@ -366,7 +366,7 @@ public:
     void noNegativeTimes();
 
     /** initialize a task */
-    void init(long minutes, long sessionTime, QString sessionStartTiMe,
+    void init(long sessionTime, QString sessionStartTiMe,
                DesktopList desktops, int percent_complete, int priority, bool konsolemode=false );
 
     static QVector<QPixmap*> *icons;
