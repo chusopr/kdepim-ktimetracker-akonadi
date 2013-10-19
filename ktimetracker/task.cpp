@@ -48,7 +48,7 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
     todo->setDescription(taskDescription);
     todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
     taskTodo = todo;
-    init(sessionTime, 0, desktops, 0, konsolemode );
+    init(sessionTime, 0, desktops, konsolemode );
 }
 
 Task::Task( const QString& taskName, const QString& taskDescription, long minutes, long sessionTime,
@@ -58,7 +58,7 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
     taskTodo->setSummary(taskName);
     taskTodo->setDescription(taskDescription);
     taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
-    init(sessionTime, 0, desktops, 0 );
+    init(sessionTime, 0, desktops );
 }
 
 Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode )
@@ -66,13 +66,11 @@ Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode 
 {
     long sessionTime = 0;
     QString sessionStartTiMe;
-    int priority = 0;
     DesktopList desktops;
     taskTodo = todo;
 
-    parseIncidence( todo, sessionTime, sessionStartTiMe, desktops,
-                  priority );
-    init(sessionTime, sessionStartTiMe, desktops, priority, konsolemode );
+    parseIncidence( todo, sessionTime, sessionStartTiMe, desktops );
+    init(sessionTime, sessionStartTiMe, desktops, konsolemode );
 }
 
 int Task::depth()
@@ -88,7 +86,7 @@ int Task::depth()
 }
 
 void Task::init(long sessionTime, QString sessionStartTiMe,
-                 DesktopList desktops, int priority, bool konsolemode )
+                 DesktopList desktops, bool konsolemode )
 {
     const TaskView *taskView = qobject_cast<TaskView*>( treeWidget() );
     // If our parent is the taskview then connect our totalTimesChanged
@@ -126,7 +124,6 @@ void Task::init(long sessionTime, QString sessionStartTiMe,
     connect(mTimer, SIGNAL(timeout()), this, SLOT(updateActiveIcon()));
     if ( !konsolemode ) setIcon(1, UserIcon(QString::fromLatin1("empty-watch.xpm")));
     mCurrentPic = 0;
-    mPriority = priority;
     mSessionStartTiMe=KDateTime::fromString(sessionStartTiMe);
 
     update();
@@ -279,7 +276,7 @@ void Task::setPriority( int priority )
         priority = 9;
     }
 
-    mPriority = priority;
+    taskTodo->setPriority(priority);
     update();
 }
 
@@ -483,11 +480,11 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
 {
     // todo = taskTodo;
     // return taskTodo;
-    Q_ASSERT( todo != NULL );
+    Q_ASSERT( todo != NULL ); // ported
 
-    kDebug(5970) <<"Task::asTodo: name() = '" << name() <<"'";
-    todo->setSummary( name() );
-    todo->setDescription( description() );
+    kDebug(5970) <<"Task::asTodo: name() = '" << name() <<"'"; // ported
+    todo->setSummary( name() ); // ported
+    todo->setDescription( description() ); // ported
 
     // Note: if the date start is empty, the KOrganizer GUI will have the
     // checkbox blank, but will prefill the todo's starting datetime to the
@@ -509,14 +506,13 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
             QByteArray( "desktopList" ), getDesktopStr() );
 
     todo->setOrganizer( KTimeTrackerSettings::userRealName() );
-    todo->setPercentComplete(percentComplete());
-    todo->setPriority( mPriority );
+    todo->setPercentComplete(percentComplete()); // ported
+    todo->setPriority(priority()); // ported
     return todo;
 }
 
 bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident,
-    long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops,
-    int& priority )
+    long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops)
 {
     kDebug(5970) << "Entering function";
     bool ok;
@@ -579,7 +575,6 @@ bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident,
             desktops.push_back( desktopInt );
         }
     }
-    priority = incident->priority();
     return true;
 }
 
@@ -639,7 +634,7 @@ void Task::update()
     setText( 2, formatTime( mTime, b ) );
     setText( 3, formatTime( mTotalSessionTime, b ) );
     setText( 4, formatTime( mTotalTime, b ) );
-    setText( 5, mPriority > 0 ? QString::number( mPriority ) : "--" );
+    setText( 5, priority() > 0 ? QString::number(priority()) : "--" );
     setText( 6, QString::number(percentComplete()) );
     kDebug( 5970 ) << "Leaving function";
 }
@@ -674,7 +669,7 @@ int Task::percentComplete() const
 
 int Task::priority() const
 {
-    return mPriority;
+    return taskTodo->priority();
 }
 
 QString Task::name() const

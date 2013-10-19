@@ -288,8 +288,7 @@ public:
      *  and use these data to initialize the task.
      */
     bool parseIncidence( const KCalCore::Incidence::Ptr &,
-        long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops,
-        int& priority );
+        long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops);
 
     /**
      *  Load the todo passed in with this tasks info.
@@ -367,7 +366,7 @@ public:
 
     /** initialize a task */
     void init(long sessionTime, QString sessionStartTiMe,
-               DesktopList desktops, int priority, bool konsolemode=false );
+               DesktopList desktops, bool konsolemode=false );
 
     static QVector<QPixmap*> *icons;
 
@@ -391,9 +390,6 @@ public:
 
     /** Don't need to update storage when deleting task from list. */
     bool mRemoving;
-
-    /** Priority of the task. */
-    int mPriority;
 };
 
 #endif // KTIMETRACKER_TASK_H
