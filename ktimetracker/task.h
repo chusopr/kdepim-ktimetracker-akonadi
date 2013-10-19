@@ -288,7 +288,7 @@ public:
      *  and use these data to initialize the task.
      */
     bool parseIncidence( const KCalCore::Incidence::Ptr &, long& minutes,
-        long& sessionMinutes, QString& sessionStartTiMe, QString& name, QString& description, DesktopList& desktops,
+        long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops,
         int& percent_complete, int& priority );
 
     /**
@@ -359,12 +359,14 @@ public:
     void updateActiveIcon();
 
   private:
+    // Original KCalCore::Todo object
+    KCalCore::Todo::Ptr taskTodo;
 
     /** if the time or session time is negative set them to zero */
     void noNegativeTimes();
 
     /** initialize a task */
-    void init( const QString& taskname, const QString& taskdescription, long minutes, long sessionTime, QString sessionStartTiMe,
+    void init(long minutes, long sessionTime, QString sessionStartTiMe,
                DesktopList desktops, int percent_complete, int priority, bool konsolemode=false );
 
     static QVector<QPixmap*> *icons;
@@ -372,16 +374,7 @@ public:
     /** The iCal unique ID of the Todo for this task. */
     QString mUid;
 
-    /** The comment associated with this Task. */
-    QString mComment;
-
     int mPercentComplete;
-
-    /** task name */
-    QString mName;
-
-    /** task description */
-    QString mDescription;
 
     /** Last time this task was started. */
     QDateTime mLastStart;

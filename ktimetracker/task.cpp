@@ -43,31 +43,36 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
             DesktopList desktops, TaskView *parent, bool konsolemode )
   : QObject(), QTreeWidgetItem(parent)
 {
-    init( taskName, taskDescription, minutes, sessionTime, 0, desktops, 0, 0, konsolemode );
+    KCalCore::Todo::Ptr todo(new KCalCore::Todo);
+    todo->setSummary(taskName);
+    todo->setDescription(taskDescription);
+    taskTodo = todo;
+    init(minutes, sessionTime, 0, desktops, 0, 0, konsolemode );
 }
 
 Task::Task( const QString& taskName, const QString& taskDescription, long minutes, long sessionTime,
             DesktopList desktops, Task *parent)
-  : QObject(), QTreeWidgetItem(parent)
+  : QObject(), QTreeWidgetItem(parent), taskTodo(new KCalCore::Todo)
 {
-    init( taskName, taskDescription, minutes, sessionTime, 0, desktops, 0, 0 );
+    taskTodo->setSummary(taskName);
+    taskTodo->setDescription(taskDescription);
+    init(minutes, sessionTime, 0, desktops, 0, 0 );
 }
 
 Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode )
   : QObject(), QTreeWidgetItem( parent )
 {
     long minutes = 0;
-    QString name;
-    QString description;
     long sessionTime = 0;
     QString sessionStartTiMe;
     int percent_complete = 0;
     int priority = 0;
     DesktopList desktops;
+    taskTodo = todo;
 
-    parseIncidence( todo, minutes, sessionTime, sessionStartTiMe, name, description, desktops, percent_complete,
+    parseIncidence( todo, minutes, sessionTime, sessionStartTiMe, desktops, percent_complete,
                   priority );
-    init( name, description, minutes, sessionTime, sessionStartTiMe, desktops, percent_complete, priority, konsolemode );
+    init(minutes, sessionTime, sessionStartTiMe, desktops, percent_complete, priority, konsolemode );
 }
 
 int Task::depth()
@@ -82,7 +87,7 @@ int Task::depth()
     return res;
 }
 
-void Task::init( const QString& taskName, const QString& taskDescription, long minutes, long sessionTime, QString sessionStartTiMe,
+void Task::init(long minutes, long sessionTime, QString sessionStartTiMe,
                  DesktopList desktops, int percent_complete, int priority, bool konsolemode )
 {
     const TaskView *taskView = qobject_cast<TaskView*>( treeWidget() );
@@ -113,8 +118,6 @@ void Task::init( const QString& taskName, const QString& taskDescription, long m
     }
 
     mRemoving = false;
-    mName = taskName.trimmed();
-    mDescription = taskDescription.trimmed();
     mLastStart = QDateTime::currentDateTime();
     mTotalTime = mTime = minutes;
     mTotalSessionTime = mSessionTime = sessionTime;
@@ -214,10 +217,10 @@ void Task::setName( const QString& name, timetrackerstorage* storage )
 {
     kDebug(5970) << "Entering function, name=" << name;
 
-    QString oldname = mName;
+    QString oldname = taskTodo->summary().trimmed();
     if ( oldname != name )
     {
-        mName = name;
+        taskTodo->setSummary(name);
         storage->setName(this, oldname);
         update();
     }
@@ -227,10 +230,10 @@ void Task::setDescription( const QString& description )
 {
     kDebug(5970) << "Entering function, description=" << description;
 
-    QString olddescription = mDescription;
+    QString olddescription = taskTodo->description();
     if ( olddescription != description )
     {
-        mDescription = description;
+        taskTodo->setDescription(description);
         update();
     }
 }
@@ -443,7 +446,7 @@ void Task::changeParentTotalTimes( long minutesSession, long minutes )
 
 bool Task::remove( timetrackerstorage* storage)
 {
-    kDebug(5970) << "entering function" << mName;
+    kDebug(5970) << "entering function" << taskTodo->summary().trimmed();
     bool ok = true;
 
     mRemoving = true;
@@ -511,15 +514,12 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
 }
 
 bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident, long& minutes,
-    long& sessionMinutes, QString& sessionStartTiMe, QString& name, QString& description, DesktopList& desktops,
+    long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops,
     int& percent_complete, int& priority )
 {
     kDebug(5970) << "Entering function";
     bool ok;
-    name = incident->summary();
-    description = incident->description();
     mUid = incident->uid();
-    mComment = incident->description();
     ok = false;
 
     // if a KDE-karm-duration exists and not KDE-ktimetracker-duration, change this
@@ -634,7 +634,7 @@ void Task::update()
 {
     kDebug( 5970 ) << "Entering function";
     bool b = KTimeTrackerSettings::decimalFormat();
-    setText( 0, mName );
+    setText( 0, taskTodo->summary().trimmed() );
     setText( 1, formatTime( mSessionTime, b ) );
     setText( 2, formatTime( mTime, b ) );
     setText( 3, formatTime( mTotalSessionTime, b ) );
@@ -646,7 +646,7 @@ void Task::update()
 
 void Task::addComment( const QString &comment, timetrackerstorage* storage )
 {
-    mComment = mComment + QString::fromLatin1("\n") + comment;
+    taskTodo->setDescription(taskTodo->description() + QString::fromLatin1("\n") + comment);
     storage->addComment(this, comment);
 }
 
@@ -664,7 +664,7 @@ QString Task::uid() const
 
 QString Task::comment() const
 {
-    return mComment;
+    return taskTodo->description();
 }
 
 int Task::percentComplete() const
@@ -679,12 +679,12 @@ int Task::priority() const
 
 QString Task::name() const
 {
-    return mName;
+    return taskTodo->summary().trimmed();
 }
 
 QString Task::description() const
 {
-    return mDescription;
+    return taskTodo->description();
 }
 
 QDateTime Task::startTime() const
