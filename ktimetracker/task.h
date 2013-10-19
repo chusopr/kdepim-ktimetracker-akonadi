@@ -371,9 +371,6 @@ public:
 
     static QVector<QPixmap*> *icons;
 
-    /** The iCal unique ID of the Todo for this task. */
-    QString mUid;
-
     int mPercentComplete;
 
     /** Last time this task was started. */

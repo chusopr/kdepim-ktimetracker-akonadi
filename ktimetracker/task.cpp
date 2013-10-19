@@ -205,7 +205,7 @@ void Task::resumeRunning()
 
 void Task::setUid( const QString &uid )
 {
-    mUid = uid;
+    taskTodo->setUid(uid);
 }
 
 bool Task::isRunning() const
@@ -240,7 +240,7 @@ void Task::setDescription( const QString& description )
 
 void Task::setPercentComplete(const int percent, timetrackerstorage *storage)
 {
-    kDebug(5970) << "Entering function(" << percent <<", storage):" << mUid;
+    kDebug(5970) << "Entering function(" << percent <<", storage):" << taskTodo->uid();
 
     if (!percent)
         mPercentComplete = 0;
@@ -519,7 +519,6 @@ bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident, long& minut
 {
     kDebug(5970) << "Entering function";
     bool ok;
-    mUid = incident->uid();
     ok = false;
 
     // if a KDE-karm-duration exists and not KDE-ktimetracker-duration, change this
@@ -659,7 +658,7 @@ void Task::startNewSession()
 //BEGIN Properties
 QString Task::uid() const
 {
-    return mUid;
+    return taskTodo->uid();
 }
 
 QString Task::comment() const
