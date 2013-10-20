@@ -201,7 +201,7 @@ public:
       void resetTimes();
 
       /** @return time in minutes */
-      long time() const { return mTime; };
+      long time() const;
       /** @return total time in minutes */
       long totalTime() const { return mTotalTime; };
       long sessionTime() const { return mSessionTime; };
@@ -378,7 +378,6 @@ public:
     long mTotalSessionTime;
 
     /** times spend on the task itself */
-    long mTime;
     long mSessionTime;
 
     /** time when the session was started */

@@ -117,7 +117,7 @@ void Task::init(long sessionTime, QString sessionStartTiMe,
 
     mRemoving = false;
     mLastStart = QDateTime::currentDateTime();
-    mTotalTime = mTime = taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt();
+    mTotalTime = taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt();
     mTotalSessionTime = mSessionTime = sessionTime;
     mTimer = new QTimer(this);
     mDesktops = desktops;
@@ -127,7 +127,7 @@ void Task::init(long sessionTime, QString sessionStartTiMe,
     mSessionStartTiMe=KDateTime::fromString(sessionStartTiMe);
 
     update();
-    changeParentTotalTimes( mSessionTime, mTime);
+    changeParentTotalTimes( mSessionTime, taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt());
 
     // alignment of the number items
     for (int i = 1; i < columnCount(); ++i)
@@ -311,7 +311,11 @@ QString Task::addTime( long minutes )
 {
     kDebug(5970) << "Entering function";
     QString err;
-    mTime+=minutes;
+    taskTodo->setCustomProperty(
+      KGlobal::mainComponent().componentName().toUtf8(),
+      QByteArray("totalTaskTime"),
+      QString::number(taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt()+minutes)
+    );
     this->addTotalTime( minutes );
     kDebug(5970) << "Leaving function";
     return err;
@@ -351,7 +355,7 @@ QString Task::setTime( long minutes )
 {
     kDebug(5970) << "Entering function";
     QString err;
-    mTime=minutes;
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime"), QString::number(minutes));
     mTotalTime+=minutes;
     kDebug(5970) << "Leaving function";
     return err;
@@ -396,7 +400,11 @@ void Task::changeTimes( long minutesSession, long minutes, timetrackerstorage* s
     if( minutesSession != 0 || minutes != 0)
     {
         mSessionTime += minutesSession;
-        mTime += minutes;
+        taskTodo->setCustomProperty(
+          KGlobal::mainComponent().componentName().toUtf8(),
+          QByteArray("totalTaskTime"),
+          QString::number(taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt()+minutes)
+        );
         if ( storage ) storage->changeTime(this, minutes * secsPerMinute);
         changeTotalTimes( minutesSession, minutes );
     }
@@ -420,14 +428,19 @@ void Task::changeTotalTimes( long minutesSession, long minutes )
     kDebug(5970) << "Leaving function";
 }
 
+long Task::time() const
+{
+  return taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt();
+};
+
 void Task::resetTimes()
 {
     kDebug(5970) << "Entering function";
     mTotalSessionTime -= mSessionTime;
-    mTotalTime -= mTime;
-    changeParentTotalTimes( -mSessionTime, -mTime);
+    mTotalTime -= taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt();
+    changeParentTotalTimes( -mSessionTime, -taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt());
     mSessionTime = 0;
-    mTime = 0;
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime"), "0");
     update();
     kDebug(5970) << "Leaving function";
 }
@@ -457,7 +470,7 @@ bool Task::remove( timetrackerstorage* storage)
         task->remove( storage );
     }
 
-    changeParentTotalTimes( -mSessionTime, -mTime);
+    changeParentTotalTimes( -mSessionTime, -taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt());
     mRemoving = false;
     return ok;
 }
@@ -492,7 +505,7 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
     // todo->setDtStart( current );
 
     todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-        QByteArray( "totalTaskTime" ), QString::number( mTime ) );
+        QByteArray( "totalTaskTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")));//ported
     todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
         QByteArray( "totalSessionTime" ), QString::number( mSessionTime) );
     todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
@@ -631,7 +644,7 @@ void Task::update()
     bool b = KTimeTrackerSettings::decimalFormat();
     setText( 0, taskTodo->summary().trimmed() );
     setText( 1, formatTime( mSessionTime, b ) );
-    setText( 2, formatTime( mTime, b ) );
+    setText( 2, formatTime( taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt(), b ) );
     setText( 3, formatTime( mTotalSessionTime, b ) );
     setText( 4, formatTime( mTotalTime, b ) );
     setText( 5, priority() > 0 ? QString::number(priority()) : "--" );
