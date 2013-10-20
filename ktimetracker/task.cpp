@@ -117,7 +117,7 @@ void Task::init(long sessionTime, QString sessionStartTiMe,
 
     mRemoving = false;
     mLastStart = QDateTime::currentDateTime();
-    mTotalTime = taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt();
+    mTotalTime = time();
     mTotalSessionTime = mSessionTime = sessionTime;
     mTimer = new QTimer(this);
     mDesktops = desktops;
@@ -127,7 +127,7 @@ void Task::init(long sessionTime, QString sessionStartTiMe,
     mSessionStartTiMe=KDateTime::fromString(sessionStartTiMe);
 
     update();
-    changeParentTotalTimes( mSessionTime, taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt());
+    changeParentTotalTimes( mSessionTime, time());
 
     // alignment of the number items
     for (int i = 1; i < columnCount(); ++i)
@@ -314,7 +314,7 @@ QString Task::addTime( long minutes )
     taskTodo->setCustomProperty(
       KGlobal::mainComponent().componentName().toUtf8(),
       QByteArray("totalTaskTime"),
-      QString::number(taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt()+minutes)
+      QString::number(time()+minutes)
     );
     this->addTotalTime( minutes );
     kDebug(5970) << "Leaving function";
@@ -403,7 +403,7 @@ void Task::changeTimes( long minutesSession, long minutes, timetrackerstorage* s
         taskTodo->setCustomProperty(
           KGlobal::mainComponent().componentName().toUtf8(),
           QByteArray("totalTaskTime"),
-          QString::number(taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt()+minutes)
+          QString::number(time()+minutes)
         );
         if ( storage ) storage->changeTime(this, minutes * secsPerMinute);
         changeTotalTimes( minutesSession, minutes );
@@ -430,15 +430,15 @@ void Task::changeTotalTimes( long minutesSession, long minutes )
 
 long Task::time() const
 {
-  return taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt();
+  return taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toLong();
 };
 
 void Task::resetTimes()
 {
     kDebug(5970) << "Entering function";
     mTotalSessionTime -= mSessionTime;
-    mTotalTime -= taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt();
-    changeParentTotalTimes( -mSessionTime, -taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt());
+    mTotalTime -= time();
+    changeParentTotalTimes( -mSessionTime, -time());
     mSessionTime = 0;
     taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime"), "0");
     update();
@@ -470,7 +470,7 @@ bool Task::remove( timetrackerstorage* storage)
         task->remove( storage );
     }
 
-    changeParentTotalTimes( -mSessionTime, -taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt());
+    changeParentTotalTimes( -mSessionTime, -time());
     mRemoving = false;
     return ok;
 }
@@ -493,21 +493,21 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
 {
     // todo = taskTodo;
     // return taskTodo;
-    Q_ASSERT( todo != NULL ); // ported
+    /* ported */ Q_ASSERT( todo != NULL );
 
-    kDebug(5970) <<"Task::asTodo: name() = '" << name() <<"'"; // ported
-    todo->setSummary( name() ); // ported
-    todo->setDescription( description() ); // ported
+    /* ported */ kDebug(5970) <<"Task::asTodo: name() = '" << name() <<"'";
+    /* ported */ todo->setSummary( name() );
+    /* ported */ todo->setDescription( description() );
 
     // Note: if the date start is empty, the KOrganizer GUI will have the
     // checkbox blank, but will prefill the todo's starting datetime to the
     // time the file is opened.
     // todo->setDtStart( current );
 
+    /* ported */ todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
+    /* ported */     QByteArray( "totalTaskTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")));
     todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-        QByteArray( "totalTaskTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")));//ported
-    todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-        QByteArray( "totalSessionTime" ), QString::number( mSessionTime) );
+        QByteArray( "totalSessionTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalSessionTime")));
     todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
         QByteArray( "sessionStartTiMe" ), mSessionStartTiMe.toString() );
     kDebug() << "mSessionStartTiMe=" << mSessionStartTiMe.toString() ;
@@ -519,8 +519,8 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
             QByteArray( "desktopList" ), getDesktopStr() );
 
     todo->setOrganizer( KTimeTrackerSettings::userRealName() );
-    todo->setPercentComplete(percentComplete()); // ported
-    todo->setPriority(priority()); // ported
+    /* ported */ todo->setPercentComplete(percentComplete());
+    /* ported */ todo->setPriority(priority());
     return todo;
 }
 
@@ -644,7 +644,7 @@ void Task::update()
     bool b = KTimeTrackerSettings::decimalFormat();
     setText( 0, taskTodo->summary().trimmed() );
     setText( 1, formatTime( mSessionTime, b ) );
-    setText( 2, formatTime( taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toInt(), b ) );
+    setText( 2, formatTime( time(), b ) );
     setText( 3, formatTime( mTotalSessionTime, b ) );
     setText( 4, formatTime( mTotalTime, b ) );
     setText( 5, priority() > 0 ? QString::number(priority()) : "--" );
