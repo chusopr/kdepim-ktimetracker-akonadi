@@ -48,6 +48,7 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
     todo->setDescription(taskDescription);
     todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
     todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalSessionTime" ), QString::number(sessionTime));
+    todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "sessionStartTiMe" ), "0");
     taskTodo = todo;
     init(0, desktops, konsolemode );
 }
@@ -60,6 +61,7 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
     taskTodo->setDescription(taskDescription);
     taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
     taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalSessionTime" ), QString::number(sessionTime));
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "sessionStartTiMe" ), "0");
     init(0, desktops );
 }
 
@@ -67,12 +69,11 @@ Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode 
   : QObject(), QTreeWidgetItem( parent )
 {
     long sessionTime = 0;
-    QString sessionStartTiMe;
     DesktopList desktops;
     taskTodo = todo;
 
-    parseIncidence( todo, sessionTime, sessionStartTiMe, desktops );
-    init(sessionStartTiMe, desktops, konsolemode );
+    parseIncidence( todo, sessionTime, desktops );
+    init(desktops, konsolemode );
 }
 
 int Task::depth()
@@ -87,8 +88,7 @@ int Task::depth()
     return res;
 }
 
-void Task::init(QString sessionStartTiMe,
-                 DesktopList desktops, bool konsolemode )
+void Task::init(DesktopList desktops, bool konsolemode )
 {
     const TaskView *taskView = qobject_cast<TaskView*>( treeWidget() );
     // If our parent is the taskview then connect our totalTimesChanged
@@ -126,7 +126,6 @@ void Task::init(QString sessionStartTiMe,
     connect(mTimer, SIGNAL(timeout()), this, SLOT(updateActiveIcon()));
     if ( !konsolemode ) setIcon(1, UserIcon(QString::fromLatin1("empty-watch.xpm")));
     mCurrentPic = 0;
-    mSessionStartTiMe=KDateTime::fromString(sessionStartTiMe);
 
     update();
     changeParentTotalTimes( sessionTime(), time());
@@ -406,7 +405,7 @@ QString Task::setSessionTime( long minutes )
 void Task::changeTimes( long minutesSession, long minutes, timetrackerstorage* storage)
 {
     kDebug(5970) << "Entering function";
-    kDebug() << "Task's sessionStartTiMe is " << mSessionStartTiMe;
+    kDebug() << "Task's sessionStartTiMe is " << sessionStartTiMe();
     if( minutesSession != 0 || minutes != 0)
     {
         taskTodo->setCustomProperty(
@@ -527,9 +526,9 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
     /* ported */     QByteArray( "totalTaskTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")));
     /* ported */ todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
     /* ported */     QByteArray( "totalSessionTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalSessionTime")));
-    todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-        QByteArray( "sessionStartTiMe" ), mSessionStartTiMe.toString() );
-    kDebug() << "mSessionStartTiMe=" << mSessionStartTiMe.toString() ;
+    /* ported */todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
+    /* ported */    QByteArray( "sessionStartTiMe" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("sessionStartTiMe")));
+    /* ported */ kDebug() << "mSessionStartTiMe=" << taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("sessionStartTiMe"));
 
     if (getDesktopStr().isEmpty())
         todo->removeCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("desktopList"));
@@ -579,7 +578,6 @@ bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident,
         QByteArray( "totalSessionTime" )).toInt( &ok );
     if ( !ok )
         sessionMinutes = 0;
-    sessionStartTiMe=incident->customProperty( KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "sessionStartTiMe" ));
 
     // if a KDE-karm-deskTopList exists and no KDE-ktimetracker-DeskTopList, change this
     if (
@@ -680,7 +678,11 @@ void Task::addComment( const QString &comment, timetrackerstorage* storage )
 void Task::startNewSession()
 {
     changeTimes( -sessionTime(), 0 );
-    mSessionStartTiMe=KDateTime::currentLocalDateTime();
+    taskTodo->setCustomProperty(
+      KGlobal::mainComponent().componentName().toUtf8(),
+      QByteArray("sessionStartTiMe"),
+      KDateTime::currentLocalDateTime().toString()
+    );
 }
 
 //BEGIN Properties
@@ -721,7 +723,7 @@ QDateTime Task::startTime() const
 
 KDateTime Task::sessionStartTiMe() const
 {
-    return mSessionStartTiMe;
+    return KDateTime::fromString(taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("sessionStartTiMe")));
 }
 
 DesktopList Task::desktops() const

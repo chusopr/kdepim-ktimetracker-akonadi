@@ -288,7 +288,7 @@ public:
      *  and use these data to initialize the task.
      */
     bool parseIncidence( const KCalCore::Incidence::Ptr &,
-        long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops);
+        long& sessionMinutes, DesktopList& desktops);
 
     /**
      *  Load the todo passed in with this tasks info.
@@ -376,9 +376,6 @@ public:
     /** totals of the whole subtree including self */
     long mTotalTime;
     long mTotalSessionTime;
-
-    /** time when the session was started */
-    KDateTime mSessionStartTiMe;
 
     DesktopList mDesktops;
     QTimer *mTimer;
