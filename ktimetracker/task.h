@@ -204,7 +204,7 @@ public:
       long time() const;
       /** @return total time in minutes */
       long totalTime() const { return mTotalTime; };
-      long sessionTime() const { return mSessionTime; };
+      long sessionTime() const;
       long totalSessionTime() const { return mTotalSessionTime; };
       KDateTime sessionStartTiMe() const;
 
@@ -365,7 +365,7 @@ public:
     void noNegativeTimes();
 
     /** initialize a task */
-    void init(long sessionTime, QString sessionStartTiMe,
+    void init(QString sessionStartTiMe,
                DesktopList desktops, bool konsolemode=false );
 
     static QVector<QPixmap*> *icons;
@@ -376,9 +376,6 @@ public:
     /** totals of the whole subtree including self */
     long mTotalTime;
     long mTotalSessionTime;
-
-    /** times spend on the task itself */
-    long mSessionTime;
 
     /** time when the session was started */
     KDateTime mSessionStartTiMe;
