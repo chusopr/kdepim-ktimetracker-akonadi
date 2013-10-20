@@ -288,7 +288,7 @@ public:
      *  and use these data to initialize the task.
      */
     bool parseIncidence( const KCalCore::Incidence::Ptr &,
-        long& sessionMinutes, DesktopList& desktops);
+        long& sessionMinutes);
 
     /**
      *  Load the todo passed in with this tasks info.
@@ -365,8 +365,7 @@ public:
     void noNegativeTimes();
 
     /** initialize a task */
-    void init(QString sessionStartTiMe,
-               DesktopList desktops, bool konsolemode=false );
+    void init( bool konsolemode=false );
 
     static QVector<QPixmap*> *icons;
 
@@ -377,7 +376,6 @@ public:
     long mTotalTime;
     long mTotalSessionTime;
 
-    DesktopList mDesktops;
     QTimer *mTimer;
     int mCurrentPic;
 

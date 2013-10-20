@@ -49,8 +49,9 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
     todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
     todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalSessionTime" ), QString::number(sessionTime));
     todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "sessionStartTiMe" ), "0");
+    setDesktopList(desktops);
     taskTodo = todo;
-    init(0, desktops, konsolemode );
+    init(konsolemode);
 }
 
 Task::Task( const QString& taskName, const QString& taskDescription, long minutes, long sessionTime,
@@ -62,18 +63,18 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
     taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
     taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalSessionTime" ), QString::number(sessionTime));
     taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "sessionStartTiMe" ), "0");
-    init(0, desktops );
+    setDesktopList(desktops);
+    init();
 }
 
 Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode )
   : QObject(), QTreeWidgetItem( parent )
 {
     long sessionTime = 0;
-    DesktopList desktops;
     taskTodo = todo;
 
-    parseIncidence( todo, sessionTime, desktops );
-    init(desktops, konsolemode );
+    parseIncidence( todo, sessionTime );
+    init(konsolemode);
 }
 
 int Task::depth()
@@ -88,7 +89,7 @@ int Task::depth()
     return res;
 }
 
-void Task::init(DesktopList desktops, bool konsolemode )
+void Task::init(bool konsolemode )
 {
     const TaskView *taskView = qobject_cast<TaskView*>( treeWidget() );
     // If our parent is the taskview then connect our totalTimesChanged
@@ -122,7 +123,6 @@ void Task::init(DesktopList desktops, bool konsolemode )
     mTotalTime = time();
     mTotalSessionTime = sessionTime();
     mTimer = new QTimer(this);
-    mDesktops = desktops;
     connect(mTimer, SIGNAL(timeout()), this, SLOT(updateActiveIcon()));
     if ( !konsolemode ) setIcon(1, UserIcon(QString::fromLatin1("empty-watch.xpm")));
     mCurrentPic = 0;
@@ -305,7 +305,24 @@ bool Task::isComplete() { return percentComplete() == 100; }
 
 void Task::setDesktopList ( DesktopList desktopList )
 {
-    mDesktops = desktopList;
+    if ( desktopList.empty() )
+    {
+        taskTodo->removeCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
+            QByteArray( "desktopList" ));
+    }
+    else
+    {
+        QString desktopstr;
+        for ( DesktopList::const_iterator iter = desktopList.begin();
+            iter != desktopList.end();
+            ++iter )
+        {
+            desktopstr += QString::number( *iter ) + QString::fromLatin1( "," );
+        }
+        desktopstr.remove( desktopstr.length() - 1, 1 );
+        taskTodo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
+            QByteArray( "desktopList" ), desktopstr);
+    }
 }
 
 QString Task::addTime( long minutes )
@@ -523,12 +540,16 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
     // todo->setDtStart( current );
 
     /* ported */ todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-    /* ported */     QByteArray( "totalTaskTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")));
+    /* ported */     QByteArray( "totalTaskTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(),
+    /* ported */     QByteArray("totalTaskTime")));
     /* ported */ todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-    /* ported */     QByteArray( "totalSessionTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalSessionTime")));
+    /* ported */     QByteArray( "totalSessionTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(),
+    /* ported */     QByteArray("totalSessionTime")));
     /* ported */todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-    /* ported */    QByteArray( "sessionStartTiMe" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("sessionStartTiMe")));
-    /* ported */ kDebug() << "mSessionStartTiMe=" << taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("sessionStartTiMe"));
+    /* ported */    QByteArray( "sessionStartTiMe" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(),
+    /* ported */     QByteArray("sessionStartTiMe")));
+    /* ported */ kDebug() << "mSessionStartTiMe=" << taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(),
+    /* ported */     QByteArray("sessionStartTiMe"));
 
     if (getDesktopStr().isEmpty())
         todo->removeCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("desktopList"));
@@ -543,7 +564,7 @@ KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
 }
 
 bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident,
-    long& sessionMinutes, QString& sessionStartTiMe, DesktopList& desktops)
+    long& sessionMinutes)
 {
     kDebug(5970) << "Entering function";
     bool ok;
@@ -589,39 +610,16 @@ bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident,
                 QByteArray( "desktopList" ), incident->customProperty( "karm",
                 QByteArray( "desktopList" )));
 
-    QString desktopList = incident->customProperty( KGlobal::mainComponent().componentName().toUtf8(),
-        QByteArray( "desktopList" ) );
-    QStringList desktopStrList = desktopList.split( QString::fromLatin1(","),
-        QString::SkipEmptyParts );
-    desktops.clear();
-
-    for ( QStringList::iterator iter = desktopStrList.begin();
-        iter != desktopStrList.end();
-        ++iter )
-    {
-        int desktopInt = (*iter).toInt( &ok );
-        if ( ok )
-        {
-            desktops.push_back( desktopInt );
-        }
-    }
     return true;
 }
 
 QString Task::getDesktopStr() const
 {
-    if ( mDesktops.empty() )
+    if ( desktops().empty() )
         return QString();
 
-    QString desktopstr;
-    for ( DesktopList::const_iterator iter = mDesktops.begin();
-        iter != mDesktops.end();
-        ++iter )
-    {
-        desktopstr += QString::number( *iter ) + QString::fromLatin1( "," );
-    }
-    desktopstr.remove( desktopstr.length() - 1, 1 );
-    return desktopstr;
+    return taskTodo->customProperty( KGlobal::mainComponent().componentName().toUtf8(),
+            QByteArray( "desktopList" ));
 }
 
 void Task::cut()
@@ -728,6 +726,23 @@ KDateTime Task::sessionStartTiMe() const
 
 DesktopList Task::desktops() const
 {
+    QString desktopList = taskTodo->customProperty( KGlobal::mainComponent().componentName().toUtf8(),
+        QByteArray( "desktopList" ) );
+    QStringList desktopStrList = desktopList.split( QString::fromLatin1(","),
+        QString::SkipEmptyParts );
+    DesktopList mDesktops;
+
+    for ( QStringList::iterator iter = desktopStrList.begin();
+        iter != desktopStrList.end();
+        ++iter )
+    {
+        bool ok;
+        int desktopInt = (*iter).toInt( &ok );
+        if ( ok )
+        {
+            mDesktops.push_back( desktopInt );
+        }
+    }
     return mDesktops;
 }
 //END
