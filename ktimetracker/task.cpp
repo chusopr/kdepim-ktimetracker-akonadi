@@ -41,16 +41,9 @@ QVector<QPixmap*> *Task::icons = 0;
 
 Task::Task( const QString& taskName, const QString& taskDescription, long minutes, long sessionTime,
             DesktopList desktops, TaskView *parent, bool konsolemode )
-  : QObject(), QTreeWidgetItem(parent)
+  : QObject(), QTreeWidgetItem(parent), taskTodo(new KCalCore::Todo)
 {
-    KCalCore::Todo::Ptr todo(new KCalCore::Todo);
-    todo->setSummary(taskName);
-    todo->setDescription(taskDescription);
-    todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
-    todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalSessionTime" ), QString::number(sessionTime));
-    todo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "sessionStartTiMe" ), "0");
-    setDesktopList(desktops);
-    taskTodo = todo;
+    populateTodo(taskName, taskDescription, minutes, sessionTime, desktops);
     init(konsolemode);
 }
 
@@ -58,12 +51,7 @@ Task::Task( const QString& taskName, const QString& taskDescription, long minute
             DesktopList desktops, Task *parent)
   : QObject(), QTreeWidgetItem(parent), taskTodo(new KCalCore::Todo)
 {
-    taskTodo->setSummary(taskName);
-    taskTodo->setDescription(taskDescription);
-    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
-    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalSessionTime" ), QString::number(sessionTime));
-    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "sessionStartTiMe" ), "0");
-    setDesktopList(desktops);
+    populateTodo(taskName, taskDescription, minutes, sessionTime, desktops);
     init();
 }
 
@@ -87,6 +75,17 @@ int Task::depth()
     while ( ( t = t->parent() ) ) res++;
     kDebug(5970) << "Leaving function. depth is:" << res;
     return res;
+}
+
+void Task::populateTodo(const QString& taskName, const QString& taskDescription, long minutes, long sessionTime, DesktopList desktops)
+{
+    taskTodo->setSummary(taskName);
+    taskTodo->setDescription(taskDescription);
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalSessionTime" ), QString::number(sessionTime));
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "sessionStartTiMe" ), "0");
+    taskTodo->setOrganizer( KTimeTrackerSettings::userRealName() );
+    setDesktopList(desktops);
 }
 
 void Task::init(bool konsolemode )
@@ -524,43 +523,13 @@ QString Task::fullName() const
         return parent()->fullName() + QString::fromLatin1("/") + name();
 }
 
-KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
+KCalCore::Todo::Ptr Task::asTodo(KCalCore::Todo::Ptr &todo) const
 {
-    // todo = taskTodo;
-    // return taskTodo;
-    /* ported */ Q_ASSERT( todo != NULL );
+    kDebug(5970) <<"Task::asTodo: name() = '" << name() <<"'";
 
-    /* ported */ kDebug(5970) <<"Task::asTodo: name() = '" << name() <<"'";
-    /* ported */ todo->setSummary( name() );
-    /* ported */ todo->setDescription( description() );
-
-    // Note: if the date start is empty, the KOrganizer GUI will have the
-    // checkbox blank, but will prefill the todo's starting datetime to the
-    // time the file is opened.
-    // todo->setDtStart( current );
-
-    /* ported */ todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-    /* ported */     QByteArray( "totalTaskTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(),
-    /* ported */     QByteArray("totalTaskTime")));
-    /* ported */ todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-    /* ported */     QByteArray( "totalSessionTime" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(),
-    /* ported */     QByteArray("totalSessionTime")));
-    /* ported */todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-    /* ported */    QByteArray( "sessionStartTiMe" ), taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(),
-    /* ported */     QByteArray("sessionStartTiMe")));
-    /* ported */ kDebug() << "mSessionStartTiMe=" << taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(),
-    /* ported */     QByteArray("sessionStartTiMe"));
-
-    if (getDesktopStr().isEmpty())
-        todo->removeCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("desktopList"));
-    else
-        todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-            QByteArray( "desktopList" ), getDesktopStr() );
-
-    todo->setOrganizer( KTimeTrackerSettings::userRealName() );
-    /* ported */ todo->setPercentComplete(percentComplete());
-    /* ported */ todo->setPriority(priority());
-    return todo;
+    if (todo != NULL)
+      todo = taskTodo;
+    return taskTodo;
 }
 
 bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident,

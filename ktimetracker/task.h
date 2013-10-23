@@ -293,7 +293,7 @@ public:
     /**
      *  Load the todo passed in with this tasks info.
      */
-    KCalCore::Todo::Ptr asTodo(const KCalCore::Todo::Ptr &calendar) const;
+    KCalCore::Todo::Ptr asTodo(KCalCore::Todo::Ptr &calendar) const;
 
     /**
      *  Set a task's description
@@ -364,8 +364,11 @@ public:
     /** if the time or session time is negative set them to zero */
     void noNegativeTimes();
 
+    /** populate a ToDo with provided data */
+    void populateTodo(const QString& taskName, const QString& taskDescription, long minutes, long sessionTime, DesktopList desktops);
+
     /** initialize a task */
-    void init( bool konsolemode=false );
+    void init(bool konsolemode=false);
 
     static QVector<QPixmap*> *icons;
 
