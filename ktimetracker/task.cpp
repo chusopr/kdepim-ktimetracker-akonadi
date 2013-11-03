@@ -61,7 +61,7 @@ Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode 
     long sessionTime = 0;
     taskTodo = todo;
 
-    parseIncidence( todo, sessionTime );
+    parseIncidence( taskTodo, sessionTime );
     init(konsolemode);
 }
 
