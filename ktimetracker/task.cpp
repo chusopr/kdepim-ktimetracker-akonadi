@@ -41,33 +41,28 @@ QVector<QPixmap*> *Task::icons = 0;
 
 Task::Task( const QString& taskName, const QString& taskDescription, long minutes, long sessionTime,
             DesktopList desktops, TaskView *parent, bool konsolemode )
-  : QObject(), QTreeWidgetItem(parent)
+  : QObject(), QTreeWidgetItem(parent), taskTodo(new KCalCore::Todo)
 {
-    init( taskName, taskDescription, minutes, sessionTime, 0, desktops, 0, 0, konsolemode );
+    populateTodo(taskName, taskDescription, minutes, sessionTime, desktops);
+    init(konsolemode);
 }
 
 Task::Task( const QString& taskName, const QString& taskDescription, long minutes, long sessionTime,
             DesktopList desktops, Task *parent)
-  : QObject(), QTreeWidgetItem(parent)
+  : QObject(), QTreeWidgetItem(parent), taskTodo(new KCalCore::Todo)
 {
-    init( taskName, taskDescription, minutes, sessionTime, 0, desktops, 0, 0 );
+    populateTodo(taskName, taskDescription, minutes, sessionTime, desktops);
+    init();
 }
 
 Task::Task( const KCalCore::Todo::Ptr &todo, TaskView* parent, bool konsolemode )
   : QObject(), QTreeWidgetItem( parent )
 {
-    long minutes = 0;
-    QString name;
-    QString description;
     long sessionTime = 0;
-    QString sessionStartTiMe;
-    int percent_complete = 0;
-    int priority = 0;
-    DesktopList desktops;
+    taskTodo = todo;
 
-    parseIncidence( todo, minutes, sessionTime, sessionStartTiMe, name, description, desktops, percent_complete,
-                  priority );
-    init( name, description, minutes, sessionTime, sessionStartTiMe, desktops, percent_complete, priority, konsolemode );
+    parseIncidence( taskTodo, sessionTime );
+    init(konsolemode);
 }
 
 int Task::depth()
@@ -82,8 +77,18 @@ int Task::depth()
     return res;
 }
 
-void Task::init( const QString& taskName, const QString& taskDescription, long minutes, long sessionTime, QString sessionStartTiMe,
-                 DesktopList desktops, int percent_complete, int priority, bool konsolemode )
+void Task::populateTodo(const QString& taskName, const QString& taskDescription, long minutes, long sessionTime, DesktopList desktops)
+{
+    taskTodo->setSummary(taskName);
+    taskTodo->setDescription(taskDescription);
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), QString::number(minutes));
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalSessionTime" ), QString::number(sessionTime));
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "sessionStartTiMe" ), "0");
+    taskTodo->setOrganizer( KTimeTrackerSettings::userRealName() );
+    setDesktopList(desktops);
+}
+
+void Task::init(bool konsolemode )
 {
     const TaskView *taskView = qobject_cast<TaskView*>( treeWidget() );
     // If our parent is the taskview then connect our totalTimesChanged
@@ -113,22 +118,16 @@ void Task::init( const QString& taskName, const QString& taskDescription, long m
     }
 
     mRemoving = false;
-    mName = taskName.trimmed();
-    mDescription = taskDescription.trimmed();
     mLastStart = QDateTime::currentDateTime();
-    mTotalTime = mTime = minutes;
-    mTotalSessionTime = mSessionTime = sessionTime;
+    mTotalTime = time();
+    mTotalSessionTime = sessionTime();
     mTimer = new QTimer(this);
-    mDesktops = desktops;
     connect(mTimer, SIGNAL(timeout()), this, SLOT(updateActiveIcon()));
     if ( !konsolemode ) setIcon(1, UserIcon(QString::fromLatin1("empty-watch.xpm")));
     mCurrentPic = 0;
-    mPercentComplete = percent_complete;
-    mPriority = priority;
-    mSessionStartTiMe=KDateTime::fromString(sessionStartTiMe);
 
     update();
-    changeParentTotalTimes( mSessionTime, mTime);
+    changeParentTotalTimes( sessionTime(), time());
 
     // alignment of the number items
     for (int i = 1; i < columnCount(); ++i)
@@ -202,7 +201,7 @@ void Task::resumeRunning()
 
 void Task::setUid( const QString &uid )
 {
-    mUid = uid;
+    taskTodo->setUid(uid);
 }
 
 bool Task::isRunning() const
@@ -214,10 +213,10 @@ void Task::setName( const QString& name, timetrackerstorage* storage )
 {
     kDebug(5970) << "Entering function, name=" << name;
 
-    QString oldname = mName;
+    QString oldname = taskTodo->summary().trimmed();
     if ( oldname != name )
     {
-        mName = name;
+        taskTodo->setSummary(name);
         storage->setName(this, oldname);
         update();
     }
@@ -227,39 +226,39 @@ void Task::setDescription( const QString& description )
 {
     kDebug(5970) << "Entering function, description=" << description;
 
-    QString olddescription = mDescription;
+    QString olddescription = taskTodo->description();
     if ( olddescription != description )
     {
-        mDescription = description;
+        taskTodo->setDescription(description);
         update();
     }
 }
 
 void Task::setPercentComplete(const int percent, timetrackerstorage *storage)
 {
-    kDebug(5970) << "Entering function(" << percent <<", storage):" << mUid;
+    kDebug(5970) << "Entering function(" << percent <<", storage):" << taskTodo->uid();
 
     if (!percent)
-        mPercentComplete = 0;
+        taskTodo->setPercentComplete(0);
     else if (percent > 100)
-        mPercentComplete = 100;
+        taskTodo->setPercentComplete(100);
     else if (percent < 0)
-        mPercentComplete = 0;
+        taskTodo->setPercentComplete(0);
     else
-        mPercentComplete = percent;
+        taskTodo->setPercentComplete(percent);
 
-    if (isRunning() && mPercentComplete==100) taskView()->stopTimerFor(this);
+    if (isRunning() && percentComplete()==100) taskView()->stopTimerFor(this);
 
     setPixmapProgress();
 
     // When parent marked as complete, mark all children as complete as well.
     // This behavior is consistent with KOrganizer (as of 2003-09-24).
-    if (mPercentComplete == 100)
+    if (percentComplete() == 100)
     {
         for ( int i = 0; i < childCount(); ++i )
         {
             Task *task = static_cast< Task* >( child( i ) );
-            task->setPercentComplete(mPercentComplete, storage);
+            task->setPercentComplete(percentComplete(), storage);
         }
     }
     // maybe there is a column "percent completed", so do a ...
@@ -277,7 +276,7 @@ void Task::setPriority( int priority )
         priority = 9;
     }
 
-    mPriority = priority;
+    taskTodo->setPriority(priority);
     update();
 }
 
@@ -286,7 +285,7 @@ void Task::setPixmapProgress()
     kDebug(5970) << "Entering function";
     QPixmap icon;
     KIconLoader* kil = new KIconLoader();
-    if (mPercentComplete >= 100)
+    if (percentComplete() >= 100)
     {
         const QString iconcomplete=QString("task-complete.xpm");
         icon = kil->loadIcon( iconcomplete, KIconLoader::User );
@@ -301,18 +300,39 @@ void Task::setPixmapProgress()
     kDebug(5970) << "Leaving function";
 }
 
-bool Task::isComplete() { return mPercentComplete == 100; }
+bool Task::isComplete() { return percentComplete() == 100; }
 
 void Task::setDesktopList ( DesktopList desktopList )
 {
-    mDesktops = desktopList;
+    if ( desktopList.empty() )
+    {
+        taskTodo->removeCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
+            QByteArray( "desktopList" ));
+    }
+    else
+    {
+        QString desktopstr;
+        for ( DesktopList::const_iterator iter = desktopList.begin();
+            iter != desktopList.end();
+            ++iter )
+        {
+            desktopstr += QString::number( *iter ) + QString::fromLatin1( "," );
+        }
+        desktopstr.remove( desktopstr.length() - 1, 1 );
+        taskTodo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
+            QByteArray( "desktopList" ), desktopstr);
+    }
 }
 
 QString Task::addTime( long minutes )
 {
     kDebug(5970) << "Entering function";
     QString err;
-    mTime+=minutes;
+    taskTodo->setCustomProperty(
+      KGlobal::mainComponent().componentName().toUtf8(),
+      QByteArray("totalTaskTime"),
+      QString::number(time()+minutes)
+    );
     this->addTotalTime( minutes );
     kDebug(5970) << "Leaving function";
     return err;
@@ -332,7 +352,11 @@ QString Task::addSessionTime( long minutes )
 {
     kDebug(5970) << "Entering function";
     QString err;
-    mSessionTime+=minutes;
+    taskTodo->setCustomProperty(
+      KGlobal::mainComponent().componentName().toUtf8(),
+      QByteArray( "totalSessionTime" ),
+      QString::number(sessionTime()+minutes)
+    );
     this->addTotalSessionTime( minutes );
     kDebug(5970) << "Leaving function";
     return err;
@@ -352,7 +376,7 @@ QString Task::setTime( long minutes )
 {
     kDebug(5970) << "Entering function";
     QString err;
-    mTime=minutes;
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime"), QString::number(minutes));
     mTotalTime+=minutes;
     kDebug(5970) << "Leaving function";
     return err;
@@ -384,7 +408,11 @@ QString Task::setSessionTime( long minutes )
 {
     kDebug(5970) << "Entering function";
     QString err;
-    mSessionTime=minutes;
+    taskTodo->setCustomProperty(
+      KGlobal::mainComponent().componentName().toUtf8(),
+      QByteArray( "totalSessionTime" ),
+      QString::number(minutes)
+    );
     mTotalSessionTime+=minutes;
     kDebug(5970) << "Leaving function";
     return err;
@@ -393,11 +421,19 @@ QString Task::setSessionTime( long minutes )
 void Task::changeTimes( long minutesSession, long minutes, timetrackerstorage* storage)
 {
     kDebug(5970) << "Entering function";
-    kDebug() << "Task's sessionStartTiMe is " << mSessionStartTiMe;
+    kDebug() << "Task's sessionStartTiMe is " << sessionStartTiMe();
     if( minutesSession != 0 || minutes != 0)
     {
-        mSessionTime += minutesSession;
-        mTime += minutes;
+        taskTodo->setCustomProperty(
+          KGlobal::mainComponent().componentName().toUtf8(),
+          QByteArray( "totalSessionTime" ),
+          QString::number(sessionTime()+minutesSession)
+        );
+        taskTodo->setCustomProperty(
+          KGlobal::mainComponent().componentName().toUtf8(),
+          QByteArray("totalTaskTime"),
+          QString::number(time()+minutes)
+        );
         if ( storage ) storage->changeTime(this, minutes * secsPerMinute);
         changeTotalTimes( minutesSession, minutes );
     }
@@ -421,14 +457,24 @@ void Task::changeTotalTimes( long minutesSession, long minutes )
     kDebug(5970) << "Leaving function";
 }
 
+long Task::time() const
+{
+  return taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime")).toLong();
+};
+
+long Task::sessionTime() const
+{
+  return taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalSessionTime")).toLong();
+}
+
 void Task::resetTimes()
 {
     kDebug(5970) << "Entering function";
-    mTotalSessionTime -= mSessionTime;
-    mTotalTime -= mTime;
-    changeParentTotalTimes( -mSessionTime, -mTime);
-    mSessionTime = 0;
-    mTime = 0;
+    mTotalSessionTime -= sessionTime();
+    mTotalTime -= time();
+    changeParentTotalTimes( -sessionTime(), -time());
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalSessionTime" ), "0");
+    taskTodo->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("totalTaskTime"), "0");
     update();
     kDebug(5970) << "Leaving function";
 }
@@ -443,7 +489,7 @@ void Task::changeParentTotalTimes( long minutesSession, long minutes )
 
 bool Task::remove( timetrackerstorage* storage)
 {
-    kDebug(5970) << "entering function" << mName;
+    kDebug(5970) << "entering function" << taskTodo->summary().trimmed();
     bool ok = true;
 
     mRemoving = true;
@@ -458,7 +504,7 @@ bool Task::remove( timetrackerstorage* storage)
         task->remove( storage );
     }
 
-    changeParentTotalTimes( -mSessionTime, -mTime);
+    changeParentTotalTimes( -sessionTime(), -time());
     mRemoving = false;
     return ok;
 }
@@ -477,49 +523,20 @@ QString Task::fullName() const
         return parent()->fullName() + QString::fromLatin1("/") + name();
 }
 
-KCalCore::Todo::Ptr Task::asTodo(const KCalCore::Todo::Ptr &todo) const
+KCalCore::Todo::Ptr Task::asTodo(KCalCore::Todo::Ptr &todo) const
 {
-    Q_ASSERT( todo != NULL );
-
     kDebug(5970) <<"Task::asTodo: name() = '" << name() <<"'";
-    todo->setSummary( name() );
-    todo->setDescription( description() );
 
-    // Note: if the date start is empty, the KOrganizer GUI will have the
-    // checkbox blank, but will prefill the todo's starting datetime to the
-    // time the file is opened.
-    // todo->setDtStart( current );
-
-    todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-        QByteArray( "totalTaskTime" ), QString::number( mTime ) );
-    todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-        QByteArray( "totalSessionTime" ), QString::number( mSessionTime) );
-    todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-        QByteArray( "sessionStartTiMe" ), mSessionStartTiMe.toString() );
-    kDebug() << "mSessionStartTiMe=" << mSessionStartTiMe.toString() ;
-
-    if (getDesktopStr().isEmpty())
-        todo->removeCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("desktopList"));
-    else
-        todo->setCustomProperty( KGlobal::mainComponent().componentName().toUtf8(),
-            QByteArray( "desktopList" ), getDesktopStr() );
-
-    todo->setOrganizer( KTimeTrackerSettings::userRealName() );
-    todo->setPercentComplete(mPercentComplete);
-    todo->setPriority( mPriority );
-    return todo;
+    if (todo != NULL)
+      todo = taskTodo;
+    return taskTodo;
 }
 
-bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident, long& minutes,
-    long& sessionMinutes, QString& sessionStartTiMe, QString& name, QString& description, DesktopList& desktops,
-    int& percent_complete, int& priority )
+bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident,
+    long& sessionMinutes)
 {
     kDebug(5970) << "Entering function";
     bool ok;
-    name = incident->summary();
-    description = incident->description();
-    mUid = incident->uid();
-    mComment = incident->description();
     ok = false;
 
     // if a KDE-karm-duration exists and not KDE-ktimetracker-duration, change this
@@ -531,10 +548,11 @@ bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident, long& minut
                 KGlobal::mainComponent().componentName().toUtf8(),
                 QByteArray( "totalTaskTime" ), incident->customProperty( "karm",
                 QByteArray( "totalTaskTime" )));
-                minutes = incident->customProperty( KGlobal::mainComponent().componentName().toUtf8(),
-                QByteArray( "totalTaskTime" )).toInt( &ok );
+
+    incident->customProperty( KGlobal::mainComponent().componentName().toUtf8(),
+                QByteArray( "totalTaskTime" )).toInt(&ok);
     if ( !ok )
-    minutes = 0;
+    incident->setCustomProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "totalTaskTime" ), "0");
     ok = false;
 
     // if a KDE-karm-totalSessionTime exists and not KDE-ktimetracker-totalSessionTime, change this
@@ -550,7 +568,6 @@ bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident, long& minut
         QByteArray( "totalSessionTime" )).toInt( &ok );
     if ( !ok )
         sessionMinutes = 0;
-    sessionStartTiMe=incident->customProperty( KGlobal::mainComponent().componentName().toUtf8(), QByteArray( "sessionStartTiMe" ));
 
     // if a KDE-karm-deskTopList exists and no KDE-ktimetracker-DeskTopList, change this
     if (
@@ -562,41 +579,16 @@ bool Task::parseIncidence( const KCalCore::Incidence::Ptr &incident, long& minut
                 QByteArray( "desktopList" ), incident->customProperty( "karm",
                 QByteArray( "desktopList" )));
 
-    QString desktopList = incident->customProperty( KGlobal::mainComponent().componentName().toUtf8(),
-        QByteArray( "desktopList" ) );
-    QStringList desktopStrList = desktopList.split( QString::fromLatin1(","),
-        QString::SkipEmptyParts );
-    desktops.clear();
-
-    for ( QStringList::iterator iter = desktopStrList.begin();
-        iter != desktopStrList.end();
-        ++iter )
-    {
-        int desktopInt = (*iter).toInt( &ok );
-        if ( ok )
-        {
-            desktops.push_back( desktopInt );
-        }
-    }
-    percent_complete = incident.staticCast<KCalCore::Todo>()->percentComplete();
-    priority = incident->priority();
     return true;
 }
 
 QString Task::getDesktopStr() const
 {
-    if ( mDesktops.empty() )
+    if ( desktops().empty() )
         return QString();
 
-    QString desktopstr;
-    for ( DesktopList::const_iterator iter = mDesktops.begin();
-        iter != mDesktops.end();
-        ++iter )
-    {
-        desktopstr += QString::number( *iter ) + QString::fromLatin1( "," );
-    }
-    desktopstr.remove( desktopstr.length() - 1, 1 );
-    return desktopstr;
+    return taskTodo->customProperty( KGlobal::mainComponent().componentName().toUtf8(),
+            QByteArray( "desktopList" ));
 }
 
 void Task::cut()
@@ -634,57 +626,61 @@ void Task::update()
 {
     kDebug( 5970 ) << "Entering function";
     bool b = KTimeTrackerSettings::decimalFormat();
-    setText( 0, mName );
-    setText( 1, formatTime( mSessionTime, b ) );
-    setText( 2, formatTime( mTime, b ) );
+    setText( 0, taskTodo->summary().trimmed() );
+    setText( 1, formatTime( sessionTime(), b ) );
+    setText( 2, formatTime( time(), b ) );
     setText( 3, formatTime( mTotalSessionTime, b ) );
     setText( 4, formatTime( mTotalTime, b ) );
-    setText( 5, mPriority > 0 ? QString::number( mPriority ) : "--" );
-    setText( 6, QString::number( mPercentComplete ) );
+    setText( 5, priority() > 0 ? QString::number(priority()) : "--" );
+    setText( 6, QString::number(percentComplete()) );
     kDebug( 5970 ) << "Leaving function";
 }
 
 void Task::addComment( const QString &comment, timetrackerstorage* storage )
 {
-    mComment = mComment + QString::fromLatin1("\n") + comment;
+    taskTodo->setDescription(taskTodo->description() + QString::fromLatin1("\n") + comment);
     storage->addComment(this, comment);
 }
 
 void Task::startNewSession()
 {
-    changeTimes( -mSessionTime, 0 );
-    mSessionStartTiMe=KDateTime::currentLocalDateTime();
+    changeTimes( -sessionTime(), 0 );
+    taskTodo->setCustomProperty(
+      KGlobal::mainComponent().componentName().toUtf8(),
+      QByteArray("sessionStartTiMe"),
+      KDateTime::currentLocalDateTime().toString()
+    );
 }
 
 //BEGIN Properties
 QString Task::uid() const
 {
-    return mUid;
+    return taskTodo->uid();
 }
 
 QString Task::comment() const
 {
-    return mComment;
+    return taskTodo->description();
 }
 
 int Task::percentComplete() const
 {
-    return mPercentComplete;
+    return taskTodo->percentComplete();
 }
 
 int Task::priority() const
 {
-    return mPriority;
+    return taskTodo->priority();
 }
 
 QString Task::name() const
 {
-    return mName;
+    return taskTodo->summary().trimmed();
 }
 
 QString Task::description() const
 {
-    return mDescription;
+    return taskTodo->description();
 }
 
 QDateTime Task::startTime() const
@@ -694,11 +690,28 @@ QDateTime Task::startTime() const
 
 KDateTime Task::sessionStartTiMe() const
 {
-    return mSessionStartTiMe;
+    return KDateTime::fromString(taskTodo->customProperty(KGlobal::mainComponent().componentName().toUtf8(), QByteArray("sessionStartTiMe")));
 }
 
 DesktopList Task::desktops() const
 {
+    QString desktopList = taskTodo->customProperty( KGlobal::mainComponent().componentName().toUtf8(),
+        QByteArray( "desktopList" ) );
+    QStringList desktopStrList = desktopList.split( QString::fromLatin1(","),
+        QString::SkipEmptyParts );
+    DesktopList mDesktops;
+
+    for ( QStringList::iterator iter = desktopStrList.begin();
+        iter != desktopStrList.end();
+        ++iter )
+    {
+        bool ok;
+        int desktopInt = (*iter).toInt( &ok );
+        if ( ok )
+        {
+            mDesktops.push_back( desktopInt );
+        }
+    }
     return mDesktops;
 }
 //END

@@ -201,10 +201,10 @@ public:
       void resetTimes();
 
       /** @return time in minutes */
-      long time() const { return mTime; };
+      long time() const;
       /** @return total time in minutes */
       long totalTime() const { return mTotalTime; };
-      long sessionTime() const { return mSessionTime; };
+      long sessionTime() const;
       long totalSessionTime() const { return mTotalSessionTime; };
       KDateTime sessionStartTiMe() const;
 
@@ -287,14 +287,13 @@ public:
      *  You read the todo, extract its custom properties (like session time)
      *  and use these data to initialize the task.
      */
-    bool parseIncidence( const KCalCore::Incidence::Ptr &, long& minutes,
-        long& sessionMinutes, QString& sessionStartTiMe, QString& name, QString& description, DesktopList& desktops,
-        int& percent_complete, int& priority );
+    bool parseIncidence( const KCalCore::Incidence::Ptr &,
+        long& sessionMinutes);
 
     /**
      *  Load the todo passed in with this tasks info.
      */
-    KCalCore::Todo::Ptr asTodo(const KCalCore::Todo::Ptr &calendar) const;
+    KCalCore::Todo::Ptr asTodo(KCalCore::Todo::Ptr &calendar) const;
 
     /**
      *  Set a task's description
@@ -359,29 +358,19 @@ public:
     void updateActiveIcon();
 
   private:
+    // Original KCalCore::Todo object
+    KCalCore::Todo::Ptr taskTodo;
 
     /** if the time or session time is negative set them to zero */
     void noNegativeTimes();
 
+    /** populate a ToDo with provided data */
+    void populateTodo(const QString& taskName, const QString& taskDescription, long minutes, long sessionTime, DesktopList desktops);
+
     /** initialize a task */
-    void init( const QString& taskname, const QString& taskdescription, long minutes, long sessionTime, QString sessionStartTiMe,
-               DesktopList desktops, int percent_complete, int priority, bool konsolemode=false );
+    void init(bool konsolemode=false);
 
     static QVector<QPixmap*> *icons;
-
-    /** The iCal unique ID of the Todo for this task. */
-    QString mUid;
-
-    /** The comment associated with this Task. */
-    QString mComment;
-
-    int mPercentComplete;
-
-    /** task name */
-    QString mName;
-
-    /** task description */
-    QString mDescription;
 
     /** Last time this task was started. */
     QDateTime mLastStart;
@@ -390,22 +379,11 @@ public:
     long mTotalTime;
     long mTotalSessionTime;
 
-    /** times spend on the task itself */
-    long mTime;
-    long mSessionTime;
-
-    /** time when the session was started */
-    KDateTime mSessionStartTiMe;
-
-    DesktopList mDesktops;
     QTimer *mTimer;
     int mCurrentPic;
 
     /** Don't need to update storage when deleting task from list. */
     bool mRemoving;
-
-    /** Priority of the task. */
-    int mPriority;
 };
 
 #endif // KTIMETRACKER_TASK_H
