@@ -138,7 +138,7 @@ QString timetrackerstorage::load(TaskView* view, const QString &fileName)
         closeStorage();
     // Create local file resource and add to resources
     d->mICalFile = lFileName;
-    d->mCalendar = KTTCalendar::createInstance( d->mICalFile, /*monitorFile=*/ fileIsLocal );
+    d->mCalendar = KTTCalendar::createInstance();
 
     QObject::connect( d->mCalendar.data(), SIGNAL(calendarChanged()),
                       view, SLOT(iCalFileModified()) );
