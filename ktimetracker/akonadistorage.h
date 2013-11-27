@@ -40,8 +40,10 @@ class KCALCORE_EXPORT AkonadiStorage : public CalStorage
     Private *const d;
     //@endcond
     int fetchResult;
+    int saveResult;
   private Q_SLOTS:
     void fetchJobResult(KJob* job);
+    void saveJobResult(KJob* job);
     void itemsReceived(const Akonadi::Item::List &items);
 };
 

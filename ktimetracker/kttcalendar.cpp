@@ -122,12 +122,11 @@ KTTCalendar::Ptr KTTCalendar::createInstance()
 /** static */
 bool KTTCalendar::save()
 {
-/*  KTTCalendar::Ptr calendar = weakPointer().toStrongRef();
-  AkonadiStorage::Ptr akonadiStorage = AkonadiStorage::Ptr( new AkonadiStorage() ); // TODO: pass akonadi collection
+  KTTCalendar::Ptr calendar = weakPointer().toStrongRef();
+  AkonadiStorage::Ptr akonadiStorage = AkonadiStorage::Ptr( new AkonadiStorage( calendar, d->m_collection ) );
 
   const bool result = akonadiStorage->save();
   if ( !result )
     kError() << "KTTCalendar::save: problem saving calendar";
-  return result;*/
-return true;
+  return result;
 }

@@ -66,6 +66,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <QMap>
+#include <KCalCore/Todo>
 
 using namespace KTimeTracker;
 
@@ -100,44 +101,18 @@ QString timetrackerstorage::load(TaskView* view, const QString &fileName)
 // loads data from filename into view. If no filename is given, filename from preferences is used.
 // filename might be of use if this program is run as embedded konqueror plugin.
 {
-    // loading might create the file
-    bool removedFromDirWatch = false;
-    if ( KDirWatch::self()->contains( d->mICalFile ) ) {
-      KDirWatch::self()->removeFile( d->mICalFile );
-      removedFromDirWatch = true;
-    }
+    Q_UNUSED(fileName); // TODO: receive changes from akonadi
     kDebug(5970) << "Entering function";
     QString err;
     KEMailSettings settings;
-    QString lFileName = fileName;
 
-    Q_ASSERT( !( lFileName.isEmpty() ) );
-
-    // If same file, don't reload
-    if ( lFileName == d->mICalFile ) {
-        if ( removedFromDirWatch ) {
-          KDirWatch::self()->addFile( d->mICalFile );
-        }
-        return err;
-    }
     // If file doesn't exist, create a blank one to avoid ResourceLocal load
     // error.  We make it user and group read/write, others read.  This is
     // masked by the users umask.  (See man creat)
-    const bool fileIsLocal = !isRemoteFile( lFileName );
-    if ( fileIsLocal )
-    {
-        int handle;
-        handle = open ( QFile::encodeName( lFileName ), O_CREAT | O_EXCL | O_WRONLY,
-               S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH );
-        if ( handle != -1 )
-        {
-            close( handle );
-        }
-    }
     if ( d->mCalendar )
         closeStorage();
     // Create local file resource and add to resources
-    d->mICalFile = lFileName;
+    d->mICalFile = "";
     d->mCalendar = KTTCalendar::createInstance();
 
     QObject::connect( d->mCalendar.data(), SIGNAL(calendarChanged()),
@@ -149,11 +124,13 @@ QString timetrackerstorage::load(TaskView* view, const QString &fileName)
     KCalCore::Person::Ptr owner = d->mCalendar->owner();
     if ( owner && owner->isEmpty() )
     {
+        // TODO
         d->mCalendar->setOwner( KCalCore::Person::Ptr(
            new KCalCore::Person( settings.getSetting( KEMailSettings::RealName ),
                                  settings.getSetting( KEMailSettings::EmailAddress ) ) ) );
     }
 
+    // TODO
     // Build task view from iCal data
     if (!err.isEmpty())
     {
@@ -199,9 +176,8 @@ QString timetrackerstorage::load(TaskView* view, const QString &fileName)
 
     if ( view ) buildTaskView(d->mCalendar->weakPointer(), view);
 
-    if ( removedFromDirWatch ) {
-      KDirWatch::self()->addFile( d->mICalFile );
-    }
+    this->save(view); // FIXME ?
+
     return err;
 }
 
@@ -374,9 +350,14 @@ QString timetrackerstorage::save(TaskView* taskview)
     {
         for (int i = 0; i < taskview->topLevelItemCount(); ++i )
         {
+            // writeTaskAsTodo() sucks 'cause it sets all fields as dirty
             Task *task = static_cast< Task* >( taskview->topLevelItem( i ) );
+            QSet<KCalCore::IncidenceBase::Field> dirties = d->mCalendar->todo(task->uid())->dirtyFields();
+            // FIXME: Why is LastModified becoming dirty?
+            dirties.remove(KCalCore::IncidenceBase::FieldLastModified);
             kDebug( 5970 ) << "write task" << task->name();
             errorString = writeTaskAsTodo( task, parents );
+            d->mCalendar->todo(task->uid())->setDirtyFields(dirties);
         }
     }
 
@@ -410,6 +391,7 @@ QString timetrackerstorage::writeTaskAsTodo(Task* task, QStack<KCalCore::Todo::P
     kDebug(5970) << "Entering function";
     QString err;
     KCalCore::Todo::Ptr todo = d->mCalendar->todo(task->uid());
+    task->asTodo(todo); // FIXME ?
     if ( !todo )
     {
         kDebug(5970) << "Could not get todo from calendar";
@@ -1044,27 +1026,16 @@ bool timetrackerstorage::isRemoteFile( const QString &file ) const
 QString timetrackerstorage::saveCalendar()
 {
     kDebug(5970) << "Entering function";
-    bool removedFromDirWatch = false;
-    if ( KDirWatch::self()->contains( d->mICalFile ) ) {
-      KDirWatch::self()->removeFile( d->mICalFile );
-      removedFromDirWatch = true;
-    }
 
     QString errorMessage;
-    if ( d->mCalendar ) {
-      d->m_fileLock->lock();
-    } else {
+    if ( !d->mCalendar ) {
+      errorMessage = QString("mCalendar not set");
       kDebug() << "mCalendar not set";
       return errorMessage;
     }
 
     if ( !d->mCalendar->save() ) {
       errorMessage = QString("Could not save. Could lock file.");
-    }
-    d->m_fileLock->unlock();
-
-    if ( removedFromDirWatch ) {
-      KDirWatch::self()->addFile( d->mICalFile );
     }
 
     return errorMessage;

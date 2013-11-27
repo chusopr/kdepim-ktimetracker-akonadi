@@ -33,6 +33,8 @@
 #include "kcalcore/memorycalendar.h"
 #include <Akonadi/ItemFetchJob>
 #include <Akonadi/ItemFetchScope>
+#include <Akonadi/ItemCreateJob>
+#include <Akonadi/ItemModifyJob>
 #include <QEventLoop>
 
 #include <KDebug>
@@ -90,21 +92,48 @@ bool AkonadiStorage::load()
   connect(job, SIGNAL(result(KJob*)), &loop, SLOT(quit()));
   loop.exec();
   disconnect(job, SIGNAL(result(KJob*)), &loop, SLOT(quit()));
+  calendar()->setProductId(d->mCollection.remoteId());
+  calendar()->setModified( false );
+
   return (fetchResult == 0);
 }
 
 void AkonadiStorage::itemsReceived(const Akonadi::Item::List& items)
 {
-  Calendar::Ptr cal = calendar();
   for (QList<Akonadi::Item>::const_iterator item = items.begin(); item != items.end(); item++)
   {
+    // TODO: same code repeated three times?
     if (item->hasPayload<KCalCore::Todo::Ptr>())
-      cal->addTodo(item->payload<KCalCore::Todo::Ptr>());
+    {
+      item->payload<KCalCore::Todo::Ptr>()->setUid(item->remoteId());
+      // after changing uid, it has been set as dirty, reset it
+      if (calendar()->addTodo(item->payload<KCalCore::Todo::Ptr>()))
+        calendar()->rawTodos().last()->resetDirtyFields();
+      // TODO: else
+    }
     else if (item->hasPayload<KCalCore::Journal::Ptr>())
-      cal->addJournal(item->payload<KCalCore::Journal::Ptr>());
+    {
+      item->payload<KCalCore::Journal::Ptr>()->setUid(item->remoteId());
+      // after changing uid, it has been set as dirty, reset it
+      if (calendar()->addJournal(item->payload<KCalCore::Journal::Ptr>()))
+        calendar()->rawJournals().last()->resetDirtyFields();
+      // TODO: else
+    }
     else if (item->hasPayload<KCalCore::Event::Ptr>())
-      cal->addEvent(item->payload<KCalCore::Event::Ptr>());
+    {
+      item->payload<KCalCore::Event::Ptr>()->setUid(item->remoteId());
+      // after changing uid, it has been set as dirty, reset it
+      if (calendar()->addEvent(item->payload<KCalCore::Event::Ptr>()))
+        calendar()->rawEvents().last()->resetDirtyFields();
+      // TODO: else
+    }
   }
+  // FIXME: UIDs becoming dirty because of previous setUid()
+  KCalCore::Todo::List todos = calendar()->rawTodos();
+  for (KCalCore::Todo::List::iterator todo = todos.begin();
+      todo != todos.end();
+      todo++)
+    (*todo)->resetDirtyFields();
 }
 
 void AkonadiStorage::fetchJobResult(KJob* job)
@@ -112,70 +141,56 @@ void AkonadiStorage::fetchJobResult(KJob* job)
   fetchResult = job->error();
 }
 
-/*  QString productId;
-  // First try the supplied format. Otherwise fall through to iCalendar, then
-  // to vCalendar
-  success = saveFormat() && saveFormat()->load( calendar(), d->mFileName );
-  if ( success ) {
-    productId = saveFormat()->loadedProductId();
-  } else {
-    ICalFormat iCal;
-
-    success = iCal.load( calendar(), d->mFileName );
-
-    if ( success ) {
-      productId = iCal.loadedProductId();
-    } else {
-      if ( iCal.exception() ) {
-        if ( iCal.exception()->code() == Exception::CalVersion1 ) {
-          // Expected non vCalendar file, but detected vCalendar
-          kDebug() << "Fallback to VCalFormat";
-          VCalFormat vCal;
-          success = vCal.load( calendar(), d->mFileName );
-          productId = vCal.loadedProductId();
-        } else {
-          return false;
-        }
-      } else {
-        kWarning() << "There should be an exception set.";
-        return false;
-      }
-    }
-  }
-
-  calendar()->setProductId( productId );
-  calendar()->setModified( false );
-
-  return true;
-}*/
+void AkonadiStorage::saveJobResult(KJob* job)
+{
+  saveResult = job->error();
+}
 
 bool AkonadiStorage::save()
 {
-  /*
   kDebug();
-  if ( d->mFileName.isEmpty() ) {
+
+  if (!d->mCollection.isValid())
     return false;
-  }
 
-  CalFormat *format = d->mSaveFormat ? d->mSaveFormat : new ICalFormat;
-
-  bool success = format->save( calendar(), d->mFileName );
-
-  if ( success ) {
-    calendar()->setModified( false );
-  } else {
-    if ( !format->exception() ) {
-      kDebug() << "Error. There should be an expection set.";
-    } else {
-      kDebug() << int( format->exception()->code() );
+  Todo::List rawTodos = calendar()->rawTodos();
+  for (Todo::List::iterator todo = rawTodos.begin();
+       todo != rawTodos.end();
+       todo++)
+  {
+    // New items have an UID dirty field
+    if ((*todo)->dirtyFields().count() > 0)
+    {
+      Akonadi::Item item;
+      item.setMimeType("application/x-vnd.akonadi.calendar.todo");
+      item.setPayload<Todo::Ptr>((*todo));
+      item.setRemoteId((*todo)->uid());
+      if ((*todo)->dirtyFields().contains(Todo::FieldUid))
+      {
+        Akonadi::ItemCreateJob *job;
+        job = new Akonadi::ItemCreateJob(item, collection());
+        connect(job, SIGNAL(result(KJob*)), this, SLOT(saveJobResult(KJob*)));
+        QEventLoop loop;
+        connect(job, SIGNAL(result(KJob*)), &loop, SLOT(quit()));
+        loop.exec();
+        disconnect(job, SIGNAL(result(KJob*)), &loop, SLOT(quit()));
+        disconnect(job, SIGNAL(result(KJob*)), this, SLOT(saveJobResult(KJob*)));
+      }
+      else
+      {
+        Akonadi::ItemModifyJob *job;
+        job = new Akonadi::ItemModifyJob(item);
+        connect(job, SIGNAL(result(KJob*)), this, SLOT(saveJobResult(KJob*)));
+        QEventLoop loop;
+        connect(job, SIGNAL(result(KJob*)), &loop, SLOT(quit()));
+        loop.exec();
+        disconnect(job, SIGNAL(result(KJob*)), &loop, SLOT(quit()));
+        disconnect(job, SIGNAL(result(KJob*)), this, SLOT(saveJobResult(KJob*)));
+      }
+      if (saveResult == false) return false;
     }
   }
 
-  if ( !d->mSaveFormat ) {
-    delete format;
-  }
-
-  return success;*/
   return true;
 }
 
