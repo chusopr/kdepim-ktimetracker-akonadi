@@ -24,6 +24,9 @@
 
 #include <KCalCore/MemoryCalendar>
 #include <QWeakPointer>
+#include <Akonadi/Collection>
+#include <Akonadi/Item>
+#include <KJob>
 
 namespace KTimeTracker {
   class KTTCalendar : public KCalCore::MemoryCalendar {
@@ -41,17 +44,20 @@ namespace KTimeTracker {
      *
      * For this reason, the ctor is private.
      */
-    static KTimeTracker::KTTCalendar::Ptr createInstance( const QString &filename,
-                                                          bool monitorFile );
+    static KTimeTracker::KTTCalendar::Ptr createInstance();
     QWeakPointer<KTimeTracker::KTTCalendar> weakPointer() const;
     void setWeakPointer( const QWeakPointer<KTimeTracker::KTTCalendar> &);
   Q_SIGNALS:
     void calendarChanged();
   private:
     KTTCalendar();
-    explicit KTTCalendar( const QString &filename, bool monitorFile );
+    //explicit KTTCalendar(); // TODO pass akonadi collection
     class Private;
     Private *const d;
+    bool fetchResult;
+  private Q_SLOTS:
+    void fetchJobResult(KJob* job);
+    void collectionsReceived(const Akonadi::Collection::List &collections);
   };
 }
 
