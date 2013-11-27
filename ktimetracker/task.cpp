@@ -523,12 +523,10 @@ QString Task::fullName() const
         return parent()->fullName() + QString::fromLatin1("/") + name();
 }
 
-KCalCore::Todo::Ptr Task::asTodo(KCalCore::Todo::Ptr &todo) const
+KCalCore::Todo::Ptr Task::asTodo() const
 {
     kDebug(5970) <<"Task::asTodo: name() = '" << name() <<"'";
 
-    if (todo != NULL)
-      todo = taskTodo;
     return taskTodo;
 }
 

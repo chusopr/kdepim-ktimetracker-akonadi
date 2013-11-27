@@ -293,7 +293,7 @@ public:
     /**
      *  Load the todo passed in with this tasks info.
      */
-    KCalCore::Todo::Ptr asTodo(KCalCore::Todo::Ptr &calendar) const;
+    KCalCore::Todo::Ptr asTodo() const;
 
     /**
      *  Set a task's description

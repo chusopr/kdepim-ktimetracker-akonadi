@@ -390,14 +390,12 @@ QString timetrackerstorage::writeTaskAsTodo(Task* task, QStack<KCalCore::Todo::P
 {
     kDebug(5970) << "Entering function";
     QString err;
-    KCalCore::Todo::Ptr todo = d->mCalendar->todo(task->uid());
-    task->asTodo(todo); // FIXME ?
+    KCalCore::Todo::Ptr todo = task->asTodo();
     if ( !todo )
     {
         kDebug(5970) << "Could not get todo from calendar";
         return "Could not get todo from calendar";
     }
-    task->asTodo(todo);
     if ( !parents.isEmpty() ) todo->setRelatedTo( parents.top() ? parents.top()->uid() : QString() );
     parents.push( todo );
 
@@ -432,10 +430,9 @@ QString timetrackerstorage::addTask(const Task* task, const Task* parent)
         kDebug(5970) << "mCalendar is not set";
         return uid;
     }
-    todo = KCalCore::Todo::Ptr( new KCalCore::Todo() );
+    todo = task->asTodo();
     if ( d->mCalendar->addTodo( todo ) )
     {
-        task->asTodo( todo );
         if (parent)
             todo->setRelatedTo( parent->uid() );
         uid = todo->uid();
